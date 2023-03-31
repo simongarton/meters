@@ -56,3 +56,9 @@ def update():
     print(data)
     # save it; send to MDMS
     return jsonify(data)
+
+@app.route('/heartbeat', methods=['POST'])
+def heartbeat():
+    data = request.json
+    print(data)
+    return jsonify(data)

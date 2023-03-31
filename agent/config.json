@@ -1,1 +1,1 @@
-{"interval_min": 5, "serial_number": "sim-1", "tempest_url": "http://127.0.0.1:8002/"}
+{"interval_min": 5, "serial": "sim-1", "tempest_url": "http://127.0.0.1:8002/"}

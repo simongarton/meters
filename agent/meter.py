@@ -173,6 +173,18 @@ def tick_completed(config):
     save_metadata(metadata)
     return True
 
+def heartbeat(config):
+    serial = config['serial'] if 'serial' in config else 'no-serial-number'
+    ip = config['ip'] if 'ip' in config else 'no-ip'
+    heartbeat_data = {
+        'serial': serial,
+        'ip': ip,
+        'timestamp': datetime.strftime(datetime.now(), TIME_FORMAT)
+    }
+    url = config['tempest_url']
+    response = requests.post(url + 'heartbeat', json=heartbeat_data)
+
+
 def tick(config):
     status = ''
     if tick_completed(config) == False:
@@ -184,6 +196,8 @@ def tick(config):
         status = status + 'not ready to upload. '
     else:
         status = status + 'upload completed. '
+
+    heartbeat(config)
 
     return {
         'status': status,

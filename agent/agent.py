@@ -14,6 +14,7 @@ from agent import meter
 def load_config():
     with open('config.json', 'r') as config_file:
         data = json.load(config_file)
+    data['ip'] = get_ip()
     return data
 
 def save_config(data):
