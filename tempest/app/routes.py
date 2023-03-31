@@ -1,8 +1,14 @@
-from flask import render_template, request, jsonify
-from app import app
+from flask import request, jsonify
+from tempest.app import app
+from datetime import datetime
 import json
 
-# potential common method
+# routes.py
+#
+# the main routes code for the tempest server
+#
+
+# potential common method - but if duplicated, means no dependencies
 def load_config():
     with open('config.json', 'r') as config_file:
         data = json.load(config_file)
@@ -15,7 +21,8 @@ def save_config(data):
 
 def build_root_data():
     data = {
-        
+        'entity':'tempest',
+        'timestamp': datetime.now()
     }
     return data
 

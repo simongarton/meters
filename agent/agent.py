@@ -1,6 +1,8 @@
 import requests
 import socket
 import json
+from datetime import datetime
+from agent import meter
 
 #
 # agent.py
@@ -9,19 +11,30 @@ import json
 # and will run ... wait.
 #
 
-# potential common method - but if duplicated, means no dependencies
 def load_config():
-    with open('config.json') as config_file:
+    with open('config.json', 'r') as config_file:
         data = json.load(config_file)
     return data
 
-# potential common method - but if duplicated, means no dependencies
+def save_config(data):
+    with open('config.json', 'w') as config_file:
+        json.dump(data, config_file)
+    return data
+
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     ip = s.getsockname()[0]
     s.close()
     return ip
+
+def build_root_data():
+    data = {
+        'entity': 'agent',
+        'timestamp': datetime.now(),
+        'ip': get_ip()
+    }
+    return data
 
 def announce():
     config = load_config()
@@ -34,6 +47,5 @@ def announce():
     print(response.status_code)
     print(response.json())
     
-
-if __name__ == '__main__':
-    announce()
+def tick():
+    return meter.tick(load_config())
