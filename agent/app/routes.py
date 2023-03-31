@@ -29,3 +29,25 @@ def post_config():
 @app.route('/tick', methods=['POST'])
 def post_tick():
     return jsonify(agent.tick())
+
+@app.route('/day', methods=['GET'])
+def get_day():
+    day = request.args.get('day')
+    day_data = agent.get_day(day)
+    if day_data == None:
+        return jsonify({}), 404
+    return jsonify(day_data)
+
+@app.route('/day', methods=['POST'])
+def post_day():
+    day = request.args.get('day')
+    day_data = agent.upload_day(day)
+    if day_data == None:
+        return jsonify({}), 404
+    return jsonify(day_data)
+
+@app.route('/redial', methods=['POST'])
+def post_redial():
+    day = request.args.get('day')
+    days_uploaded = agent.redial(day)
+    return jsonify({'days_uploaded': days_uploaded})

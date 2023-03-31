@@ -49,3 +49,10 @@ def get_config():
 def post_config():
     data = request.json
     return jsonify(save_config(data))
+
+@app.route('/update', methods=['POST'])
+def update():
+    data = request.json
+    print(data)
+    # save it; send to MDMS
+    return jsonify(data)

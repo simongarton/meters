@@ -3,6 +3,19 @@ from datetime import datetime, timedelta
 import json
 import os
 import random
+import requests
+
+#
+# meter.py
+#
+# the main logic for a meter - generating values and storing them.
+#
+# to do :
+# - clean up old files ? but I need history so no
+# - datastreams
+# - snapshots
+# - logging to log files, not terminal - can then query with agent
+# - sensible profiles
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
@@ -22,7 +35,8 @@ def round_time(dt=None, roundTo=60):
 def create_metadata():
     with open('data/metadata.json', 'w') as metadata:
         data = {
-            'last_updated': None
+            'last_updated': None,
+            'last_uploaded': None,
         }
         json.dump(data, metadata)
 
@@ -48,6 +62,15 @@ def create_or_get_day(reading_day, empty_day):
     return data
 
 
+def get_day_data(reading_day):
+    filename = 'data/{}.json'.format(reading_day)
+    if not os.path.exists(filename):
+        return None
+    with open(filename, 'r') as metadata:
+        data = json.load(metadata)
+    return data
+
+
 def save_updated_day(reading_day, data):
     filename = 'data/{}.json'.format(reading_day)
     with open(filename, 'w') as metadata:
@@ -55,12 +78,13 @@ def save_updated_day(reading_day, data):
     return data
 
 
-def create_or_update_reading(usable_time):
+def create_or_update_reading(usable_time, serial):
     # 5MS trick : midnight is the correct day, otherwise we need to add 1
     reading_time = usable_time if (usable_time.hour == 0 and usable_time.minute == 0) else usable_time + timedelta(days=1)
     print('updated {} to reading_time {}'.format(usable_time, reading_time))
     reading_day = datetime.strftime(reading_time, DAY_FORMAT)
     empty_day = {
+        'serial': serial,
         'reading_day': reading_day
     }
     day = create_or_get_day(reading_day, empty_day)
@@ -70,12 +94,54 @@ def create_or_update_reading(usable_time):
     save_updated_day(reading_day, day)
 
 
-def tick_completed(config):
+def create_or_load_metadata():
     if not os.path.exists('data'):
         os.mkdir('data')
     if not os.path.exists('data/metadata.json'):
         create_metadata()
     metadata = load_metadata()    
+    return metadata
+
+
+def upload_yesterdays_file(config):
+    # 5MS - yesterday's file has today's date, doh.
+    reading_day = datetime.strftime(datetime.now() + timedelta(days=0), DAY_FORMAT)
+    return upload_file(reading_day, config)
+
+
+def upload_file(reading_day, config):
+    day_data = get_day_data(reading_day)
+    if day_data == None:
+        print('no data to load for {} at {}'.format(reading_day, datetime.now()))
+        return False
+    print('got data to load for {} at {}'.format(reading_day, datetime.now()))
+    print(day_data)
+    url = config['tempest_url']
+    response = requests.post(url + 'update', json=day_data)
+    print(response)
+    return True
+
+
+def upload_completed(config):
+    metadata = create_or_load_metadata()    
+    last_uploaded = metadata['last_uploaded']
+    if last_uploaded == None:
+        if upload_yesterdays_file(config):
+            metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
+            save_metadata(metadata)
+        return True
+    last_uploaded_time = datetime.strptime(last_uploaded, TIME_FORMAT)
+    diff = datetime.now() - last_uploaded_time
+    if diff.total_seconds() > 24 * 60 * 60:
+        if upload_yesterdays_file(config):
+            metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
+            save_metadata(metadata)
+        return True
+    return False
+
+
+def tick_completed(config):
+    metadata = create_or_load_metadata()    
     last_updated = metadata['last_updated']
     interval = config['interval_min'] * 60
 
@@ -99,7 +165,8 @@ def tick_completed(config):
     usable_time = round_time(datetime.now(), interval)
     print('converted {} to usable time {}'.format(datetime.now(), usable_time))
 
-    create_or_update_reading(usable_time)
+    serial = config['serial'] if 'serial' in config else 'no-serial-number'
+    create_or_update_reading(usable_time, serial)
 
     metadata['last_updated'] = datetime.strftime(usable_time, TIME_FORMAT)
 
@@ -107,16 +174,32 @@ def tick_completed(config):
     return True
 
 def tick(config):
+    status = ''
     if tick_completed(config) == False:
-        print('not ready')
-        return {
-            'status': 'not ready to tick()'
-        }
+        status = status + 'not ready to tick. '
+    else:
+        status = status + 'tick completed. '
 
-    print("meter ticked at {}".format(datetime.now()))
+    if upload_completed(config) == False:
+        status = status + 'not ready to upload. '
+    else:
+        status = status + 'upload completed. '
+
     return {
-        'status': 'tick',
+        'status': status,
         'now': datetime.strftime(datetime.now(), TIME_FORMAT)
     }
 
 
+def get_day(day):
+    # another 5MS hack - today is actually yesterday
+    day = day if day is not None else datetime.strftime(datetime.now() + timedelta(days=1), DAY_FORMAT)
+    return get_day_data(day)
+    
+
+def upload_day(day, config):
+    return upload_file(day, config)
+
+def redial(from_day, config):
+    # TBC - count the number of payloads I actually redial
+    return 0

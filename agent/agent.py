@@ -21,12 +21,14 @@ def save_config(data):
         json.dump(data, config_file)
     return data
 
+
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     ip = s.getsockname()[0]
     s.close()
     return ip
+
 
 def build_root_data():
     data = {
@@ -36,9 +38,9 @@ def build_root_data():
     }
     return data
 
+
 def announce():
     config = load_config()
-    print(config)
     url = config['tempest_url']
     data = {
         'ip': get_ip()
@@ -46,6 +48,19 @@ def announce():
     response = requests.post(url + 'announce', json=data)
     print(response.status_code)
     print(response.json())
+
     
 def tick():
     return meter.tick(load_config())
+
+
+def get_day(day):
+    return meter.get_day(day)
+
+
+def upload_day(day):
+    return meter.upload_day(day, load_config())
+
+
+def redial(day):
+    return meter.redial(day, load_config())
