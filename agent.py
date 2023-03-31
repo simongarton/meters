@@ -2,13 +2,20 @@ import requests
 import socket
 import json
 
-# potential common method
+#
+# agent.py
+#
+# the main agent for a simulated meter. this is installed on each meter,
+# and will run ... wait.
+#
+
+# potential common method - but if duplicated, means no dependencies
 def load_config():
     with open('config.json') as config_file:
         data = json.load(config_file)
     return data
 
-# potential common method
+# potential common method - but if duplicated, means no dependencies
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))

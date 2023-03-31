@@ -8,7 +8,7 @@ March 2023
 
 ## About
 
-This project explores setting up Raspberry Pis to act as electricity meters, generating realistic daily
+This project explores setting up Raspberry Pis to simulate electricity meters, generating realistic daily
 profiles of electricity consumption, that can be pushed to an MDMS.
 
 ## Getting Started

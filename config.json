@@ -1,1 +1,5 @@
-{"tempest_url": "http://127.0.0.1:5000/"}
+{
+    "tempest_url": "http://127.0.0.1:5000/",
+    "interval_min": 5,
+    "serial_number": "sim-1"
+}
