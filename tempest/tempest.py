@@ -9,6 +9,7 @@ import pytz
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
+INFLUX_URL = 'http://localhost:8086'
 ORG = 'home'
 BUCKET = 'meters'
 
@@ -117,67 +118,22 @@ def get_meter_readings(serial, day):
 
 def save_influx_data(serial, date, data):
     token = get_token()
-    client = InfluxDBClient(url="http://localhost:8086", token=token, org=ORG)
+    client = InfluxDBClient(url=INFLUX_URL, token=token, org=ORG)
     with client.write_api(write_options=SYNCHRONOUS) as write_api:
         skip_keys = ['serial', 'reading_day']
         for k,e in data.items():
             if k in skip_keys:
                 continue
-            print('{} x {}'.format(k, e))
+            # this seems overly complex - but it works
+            # 2023-04-01 20:35:00+13:00 -> 2023-04-01 07:35:00+00:00 -> 2023-04-01 07:35:00+00:00
             real_time = datetime.strptime(k, TIME_FORMAT)
             dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
             dt_utc = dt_pacific.astimezone(pytz.UTC)
-            # looks sensible
-            # 2023-04-01 20:30:00+13:00,2023-04-01 07:30:00+00:00
-            # but doesn't work
-
-            # result = write_api.write(BUCKET, ORG, [{"measurement": "consumption", "tags": {"serial": serial}, "fields": {"reading": e}, "time": real_time}])
-            # write_api.write(BUCKET, ORG, Point('thing').tag('serial', serial).field('reading', e).time(1))
             time = datetime(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour, dt_utc.minute, dt_utc.second, 0, tzinfo=timezone.utc)
-            print('{} -> {} -> {}'.format(dt_pacific, dt_utc, time))
-            p = Point("testing").tag("serial", serial).field("reading", e).time(time)
+            # print('{} -> {} -> {}'.format(dt_pacific, dt_utc, time))
+            p = Point("consumption").tag("serial", serial).field("reading", e).time(time)
             write_api.write(bucket=BUCKET, org=ORG, record=p)
-            # p = Point("my_measurement").tag("location", "Prague").field("temperature", 26.3).time(time)
-            # write_api.write(bucket='test', org=ORG, record=p)
 
-
-
-        # .time('2023-03-31T00:00:00.123456Z') did not work
-        # .time(datetime(2023, 4, 1, 1, 0, 0, 123456)) did not work
-        # without a time works instantly.
-        # 1680339138 did not work, unprocessable
-        # 1680339138000 did not work, unprocessable
-        # 1680339138000000 did not work, unprocessable
-        
-        """
-        Reason: Unprocessable Entity
-        HTTP response headers: HTTPHeaderDict({'Content-Type': 'application/json; charset=utf-8', 'X-Influxdb-Build': 'OSS', 'X-Influxdb-Version': '2.6.1', 'X-Platform-Error-Code': 'unprocessable entity', 'Date': 'Sat, 01 Apr 2023 08:53:21 GMT', 'Content-Length': '135'})
-        HTTP response body: {"code":"unprocessable entity","message":"failure writing points to database: partial write: points beyond retention policy dropped=1"}
-        """
-
-        # time = datetime(2023, 4, 1, 9, 11, 0, 877043, tzinfo=timezone.utc)
-        # print(time)
-        # p = Point("my_measurement").tag("location", "Prague").field("temperature", 26.3).time(time)
-        # write_api.write(bucket='test', org=ORG, record=p)
-
-    query_api = client.query_api()   
-    query1 = 'from(bucket:"test")\
-    |> range(start: -60m)\
-    |> filter(fn:(r) => r._measurement == "my_measurement")\
-    |> filter(fn:(r) => r.location == "Prague")\
-    |> filter(fn:(r) => r._field == "temperature")'
-
-    query2 = 'from(bucket:"meters")\
-    |> range(start: -600m)'
-
-    result = query_api.query(org=ORG, query=query2)
-
-    results = []
-    for table in result:
-        for record in table.records:
-            results.append((record.get_field(), record.get_value(), record.get_time()))
-
-        print(results)
 
 def save_data(serial, date, data):
     dirname = 'data/{}'.format(serial)
