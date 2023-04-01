@@ -22,6 +22,24 @@ def build_root_data():
     }
     return data
 
+def create_or_get_meters():
+    if not os.path.exists('data'):
+        os.mkdir('data')
+    filename = 'data/meters.json'
+    if os.path.exists(filename):
+        with open(filename, 'r') as file:
+            data = json.load(file)
+        return data
+    else:
+        return {}
+
+
+def save_meters(data):
+    filename = 'data/meters.json'
+    with open(filename, 'w') as file:
+        json.dump(data, file)
+    return data
+
 
 def create_or_get_heartbeats():
     if not os.path.exists('data'):
@@ -48,6 +66,7 @@ def get_heartbeats():
 
 
 def post_heartbeat(heartbeat):
+    print(heartbeat)
     data = create_or_get_heartbeats()
     data[heartbeat['serial']] = datetime.strftime(datetime.now(), TIME_FORMAT)
     save_heartbeats(data)
@@ -55,8 +74,41 @@ def post_heartbeat(heartbeat):
 
 
 def get_meters():
-    return []
+    return create_or_get_meters()
 
 
 def get_meter(serial):
-    return {}
+    dirname = 'data/{}'.format(serial)
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+    days = []
+    for file in os.listdir(dirname):
+        days.append(file.replace('.json', ''))
+    days.sort(reverse=True)
+    return days
+
+
+def save_data(serial, date, data):
+    dirname = 'data/{}'.format(serial)
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+    filename = 'data/{}/{}.json'.format(serial, date)
+    with open(filename, 'w') as file:
+        json.dump(data, file)
+    file_count = len(os.listdir(dirname))
+    data = create_or_get_meters()
+    entry = {
+        'count':file_count,
+        'latest': date,
+        'last_seen': datetime.strftime(datetime.now(), TIME_FORMAT)
+    }
+    data[serial] = entry
+    save_meters(data)
+
+    return data
+
+
+def update(data):
+    serial = data['serial']
+    date = data['reading_day']
+    save_data(serial, date, data)

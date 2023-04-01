@@ -30,3 +30,7 @@ def get_meters():
     if serial == None:
         return jsonify(tempest.get_meters())
     return jsonify(tempest.get_meter(serial))
+
+@app.route('/update', methods=['POST'])
+def update():
+    return jsonify(tempest.update(request.json))
