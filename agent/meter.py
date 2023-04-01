@@ -4,6 +4,7 @@ import json
 import os
 import random
 import requests
+import socket
 
 #
 # meter.py
@@ -21,15 +22,15 @@ TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 
 def round_time(dt=None, roundTo=60):
-   """Round a datetime object to any time lapse in seconds
-   dt : datetime.datetime object, default now.
-   roundTo : Closest number of seconds to round to, default 1 minute.
-   Author: Thierry Husson 2012 - Use it as you want but don't blame me.
-   """
-   if dt == None : dt = datetime.datetime.now()
-   seconds = (dt.replace(tzinfo=None) - dt.min).seconds
-   rounding = (seconds+roundTo/2) // roundTo * roundTo
-   return dt + timedelta(0,rounding-seconds,-dt.microsecond)
+    """Round a datetime object to any time lapse in seconds
+    dt : datetime.datetime object, default now.
+    roundTo : Closest number of seconds to round to, default 1 minute.
+    Author: Thierry Husson 2012 - Use it as you want but don't blame me.
+    """
+    if dt == None : dt = datetime.datetime.now()
+    seconds = (dt.replace(tzinfo=None) - dt.min).seconds
+    rounding = (seconds+roundTo/2) // roundTo * roundTo
+    return dt + timedelta(0,rounding-seconds,-dt.microsecond)
 
 
 def create_metadata():
@@ -173,6 +174,7 @@ def tick_completed(config):
     save_metadata(metadata)
     return True
 
+
 def heartbeat(config):
     serial = config['serial'] if 'serial' in config else 'no-serial-number'
     ip = config['ip'] if 'ip' in config else 'no-ip'
@@ -214,6 +216,31 @@ def get_day(day):
 def upload_day(day, config):
     return upload_file(day, config)
 
+
 def redial(from_day, config):
     # TBC - count the number of payloads I actually redial
     return 0
+
+
+def load_config():
+    with open('config.json', 'r') as config_file:
+        data = json.load(config_file)
+    data['ip'] = get_ip()
+    return data
+
+
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
+
+
+def cold_tick():
+    config = load_config()
+    tick(config)
+    
+
+if __name__ == '__main__':
+    cold_tick()

@@ -17,6 +17,7 @@ def load_config():
     data['ip'] = get_ip()
     return data
 
+
 def save_config(data):
     with open('config.json', 'w') as config_file:
         json.dump(data, config_file)
