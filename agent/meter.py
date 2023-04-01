@@ -68,6 +68,7 @@ def get_day_data(reading_day):
 
 
 def save_updated_day(reading_day, data):
+    print(data)
     filename = 'data/{}.json'.format(reading_day)
     with open(filename, 'w') as metadata:
         data = json.dump(data, metadata)
@@ -82,18 +83,54 @@ def map_timestamp_to_reading_day(working_timestamp):
     return reading_day
 
 
-def create_or_update_reading(usable_time, serial):
+def generate_reading(usable_time, config, channel_factor):
+    working_hour = usable_time.hour
+    profile_data = config['profile'] if 'profile' in config else {}
+    profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
+    variability = config['variability'] if 'variability' in config else 0
+    reading = random.randint(0, profile_value * 10) / 10.0
+    varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
+    channel_reading = round(varied_reading * channel_factor, 3)
+    return channel_reading
+        
+
+def create_or_get_snapshot_block(config, metadata):
+    channel_data = config['channel'] if 'channel' in config else {"PositiveActiveEnergyTotal":1.0}
+    snapshot_data = metadata['snapshots'] if 'snapshots' in config else {}
+    snapshot_block = {}
+    for channel_name, channel_factor in channel_data.items():
+        snapshot_value = snapshot_data[channel_name] if channel_name in snapshot_data else 0
+        snapshot_block[channel_name] = snapshot_value
+    return snapshot_block    
+ 
+
+def build_datastream_block(channel_data):
+    datastream_block = {}
+    for channel_name, channel_factor in channel_data.items():
+        datastream_block[channel_name] = {}
+    return datastream_block
+
+def create_or_update_readings(usable_time, serial, config, snapshot_block):
     reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = datetime.strftime(reading_time, DAY_FORMAT)
+    channel_data = config['channel'] if 'channel' in config else {"PositiveActiveEnergyTotal":1.0}
+    datastream_block = build_datastream_block(channel_data)
     empty_day = {
         'serial': serial,
-        'reading_day': reading_day
+        'reading_day': reading_day,
+        'snapshots': snapshot_block,
+        'datastreams': datastream_block,
     }
+
     day = create_or_get_day(reading_day, empty_day)
-    reading = random.randint(0, 100) / 10.0
-    interval_key = datetime.strftime(usable_time, TIME_FORMAT)
-    day[interval_key] = reading
+
+    for channel_name, channel_factor in channel_data.items():
+        reading = generate_reading(usable_time, config, channel_factor)
+        interval_key = datetime.strftime(usable_time, TIME_FORMAT)
+        day['datastreams'][channel_name][interval_key] = reading
+        snapshot_block[channel_name] = snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
+    return snapshot_block
 
 
 def create_or_load_metadata():
@@ -160,9 +197,13 @@ def tick_completed(config):
     usable_time = round_time(datetime.now(), interval)
     print('converted {} to usable time {}'.format(datetime.now(), usable_time))
 
-    serial = config['serial'] if 'serial' in config else 'no-serial-number'
-    create_or_update_reading(usable_time, serial)
+    snapshot_block = create_or_get_snapshot_block(config, metadata)
 
+    serial = config['serial'] if 'serial' in config else 'no-serial-number'
+    print("doing")
+    updated_snapshot_block = create_or_update_readings(usable_time, serial, config, snapshot_block)
+
+    metadata['snapshots'] = updated_snapshot_block
     metadata['last_updated'] = datetime.strftime(usable_time, TIME_FORMAT)
 
     save_metadata(metadata)

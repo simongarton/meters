@@ -126,6 +126,7 @@ def save_influx_data(serial, date, data):
                 continue
             # this seems overly complex - but it works
             # 2023-04-01 20:35:00+13:00 -> 2023-04-01 07:35:00+00:00 -> 2023-04-01 07:35:00+00:00
+            # maybe I can dt.replace(tzinfo=timezone.utc) ? Does that add the offset ?
             real_time = datetime.strptime(k, TIME_FORMAT)
             dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
             dt_utc = dt_pacific.astimezone(pytz.UTC)
