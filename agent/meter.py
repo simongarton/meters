@@ -11,12 +11,7 @@ import socket
 #
 # the main logic for a meter - generating values and storing them.
 #
-# to do :
-# - clean up old files ? but I need history so no
-# - datastreams
-# - snapshots
-# - logging to log files, not terminal - can then query with agent
-# - sensible profiles
+
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
@@ -79,10 +74,16 @@ def save_updated_day(reading_day, data):
     return data
 
 
-def create_or_update_reading(usable_time, serial):
+def map_timestamp_to_reading_day(working_timestamp):
     # 5MS trick : midnight is the correct day, otherwise we need to add 1
-    reading_time = usable_time if (usable_time.hour == 0 and usable_time.minute == 0) else usable_time + timedelta(days=1)
-    print('updated {} to reading_time {}'.format(usable_time, reading_time))
+    reading_day = working_timestamp if (working_timestamp.hour == 0 and working_timestamp.minute == 0) else working_timestamp + timedelta(days=1)
+    reading_day = reading_day.replace(hour=0, minute= 0)
+    print('updated {} to reading_time {}'.format(working_timestamp, reading_day))
+    return reading_day
+
+
+def create_or_update_reading(usable_time, serial):
+    reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = datetime.strftime(reading_time, DAY_FORMAT)
     empty_day = {
         'serial': serial,
@@ -104,40 +105,33 @@ def create_or_load_metadata():
     return metadata
 
 
-def upload_yesterdays_file(config):
-    # 5MS - yesterday's file has today's date, doh.
-    reading_day = datetime.strftime(datetime.now() + timedelta(days=0), DAY_FORMAT)
-    return upload_file(reading_day, config)
-
-
 def upload_file(reading_day, config):
+    if reading_day == None:
+        return True
     day_data = get_day_data(reading_day)
     if day_data == None:
         print('no data to load for {} at {}'.format(reading_day, datetime.now()))
         return False
     print('got data to load for {} at {}'.format(reading_day, datetime.now()))
-    print(day_data)
     url = config['tempest_url']
     response = requests.post(url + 'update', json=day_data)
-    print(response)
     return True
 
 
 def upload_completed(config):
-    metadata = create_or_load_metadata()    
-    last_uploaded = metadata['last_uploaded']
-    if last_uploaded == None:
-        if upload_yesterdays_file(config):
+    metadata = create_or_load_metadata()   
+    interval = config['interval_min'] * 60 
+    usable_time = round_time(datetime.now(), interval)
+    current_day = datetime.strftime(map_timestamp_to_reading_day(usable_time), DAY_FORMAT)
+    current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
+    if current_day_file == None or current_day != current_day_file:
+        print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
+        if upload_file(current_day_file, config):
             metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
+            metadata['current_day_file'] = current_day
             save_metadata(metadata)
         return True
-    last_uploaded_time = datetime.strptime(last_uploaded, TIME_FORMAT)
-    diff = datetime.now() - last_uploaded_time
-    if diff.total_seconds() > 24 * 60 * 60:
-        if upload_yesterdays_file(config):
-            metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
-            save_metadata(metadata)
-        return True
+    print('no need to upload file as current_day is {} and working file is also {}'.format(current_day, current_day_file))
     return False
 
 
@@ -189,11 +183,16 @@ def heartbeat(config):
 
 def tick(config):
     status = ''
+    # run a tick (if ready) to store some more 5min data
     if tick_completed(config) == False:
         status = status + 'not ready to tick. '
     else:
         status = status + 'tick completed. '
 
+    # check to see if the PREVIOUS file that I was writing to has been uploaded
+    # each time I run this, I look at the current date I'm writing to and the last file
+    # I wrote to - in metadata. if they are not the same, upload the last file (as it's complete)
+    # and update the file
     if upload_completed(config) == False:
         status = status + 'not ready to upload. '
     else:
@@ -242,5 +241,6 @@ def cold_tick():
     tick(config)
     
 
+# I need this as I run this script from a cron job
 if __name__ == '__main__':
     cold_tick()
