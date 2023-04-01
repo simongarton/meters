@@ -34,7 +34,7 @@ def create_metadata():
             'last_updated': None,
             'last_uploaded': None,
         }
-        json.dump(data, metadata)
+        json.dump(data, metadata, indent=4)
 
 
 def load_metadata():
@@ -45,7 +45,7 @@ def load_metadata():
 
 def save_metadata(data):
     with open('data/metadata.json', 'w') as metadata:
-        data = json.dump(data, metadata)
+        data = json.dump(data, metadata, indent=4)
     return data
 
 
@@ -68,10 +68,9 @@ def get_day_data(reading_day):
 
 
 def save_updated_day(reading_day, data):
-    print(data)
     filename = 'data/{}.json'.format(reading_day)
     with open(filename, 'w') as metadata:
-        data = json.dump(data, metadata)
+        data = json.dump(data, metadata, indent=4)
     return data
 
 
@@ -79,7 +78,7 @@ def map_timestamp_to_reading_day(working_timestamp):
     # 5MS trick : midnight is the correct day, otherwise we need to add 1
     reading_day = working_timestamp if (working_timestamp.hour == 0 and working_timestamp.minute == 0) else working_timestamp + timedelta(days=1)
     reading_day = reading_day.replace(hour=0, minute= 0)
-    print('updated {} to reading_time {}'.format(working_timestamp, reading_day))
+    # print('updated {} to reading_time {}'.format(working_timestamp, reading_day))
     return reading_day
 
 
@@ -95,7 +94,7 @@ def generate_reading(usable_time, config, channel_factor):
         
 
 def create_or_get_snapshot_block(config, metadata):
-    channel_data = config['channel'] if 'channel' in config else {"PositiveActiveEnergyTotal":1.0}
+    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
     snapshot_data = metadata['snapshots'] if 'snapshots' in config else {}
     snapshot_block = {}
     for channel_name, channel_factor in channel_data.items():
@@ -110,10 +109,12 @@ def build_datastream_block(channel_data):
         datastream_block[channel_name] = {}
     return datastream_block
 
+
 def create_or_update_readings(usable_time, serial, config, snapshot_block):
+    updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = datetime.strftime(reading_time, DAY_FORMAT)
-    channel_data = config['channel'] if 'channel' in config else {"PositiveActiveEnergyTotal":1.0}
+    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
     datastream_block = build_datastream_block(channel_data)
     empty_day = {
         'serial': serial,
@@ -128,9 +129,9 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
         reading = generate_reading(usable_time, config, channel_factor)
         interval_key = datetime.strftime(usable_time, TIME_FORMAT)
         day['datastreams'][channel_name][interval_key] = reading
-        snapshot_block[channel_name] = snapshot_block[channel_name] + reading
+        updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
-    return snapshot_block
+    return updated_snapshot_block
 
 
 def create_or_load_metadata():
@@ -149,7 +150,7 @@ def upload_file(reading_day, config):
     if day_data == None:
         print('no data to load for {} at {}'.format(reading_day, datetime.now()))
         return False
-    print('got data to load for {} at {}'.format(reading_day, datetime.now()))
+    # print('got data to load for {} at {}'.format(reading_day, datetime.now()))
     url = config['tempest_url']
     response = requests.post(url + 'update', json=day_data)
     return True
@@ -162,13 +163,18 @@ def upload_completed(config):
     current_day = datetime.strftime(map_timestamp_to_reading_day(usable_time), DAY_FORMAT)
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
     if current_day_file == None or current_day != current_day_file:
-        print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
+        # print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
         if upload_file(current_day_file, config):
+            # print("uploaded file worked, updating metadata to {}".format(current_day))
             metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
+        else:
+            print("uploaded file didn't work, updating metadata to {}".format(current_day))
+            metadata['current_day_file'] = current_day
+            save_metadata(metadata)
         return True
-    print('no need to upload file as current_day is {} and working file is also {}'.format(current_day, current_day_file))
+    # print('no need to upload file as current_day is {} and working file is also {}'.format(current_day, current_day_file))
     return False
 
 
@@ -195,12 +201,11 @@ def tick_completed(config):
     # ... which I think I shouldn't get a duplicate for (and is OK anyway, as it's keyed)
 
     usable_time = round_time(datetime.now(), interval)
-    print('converted {} to usable time {}'.format(datetime.now(), usable_time))
+    # print('converted {} to usable time {}'.format(datetime.now(), usable_time))
 
     snapshot_block = create_or_get_snapshot_block(config, metadata)
 
     serial = config['serial'] if 'serial' in config else 'no-serial-number'
-    print("doing")
     updated_snapshot_block = create_or_update_readings(usable_time, serial, config, snapshot_block)
 
     metadata['snapshots'] = updated_snapshot_block

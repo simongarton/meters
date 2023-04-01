@@ -45,7 +45,7 @@ def create_or_get_meters():
 def save_meters(data):
     filename = 'data/meters.json'
     with open(filename, 'w') as file:
-        json.dump(data, file)
+        json.dump(data, file, indent=4)
     return data
 
 
@@ -64,7 +64,7 @@ def create_or_get_heartbeats():
 def save_heartbeats(data):
     filename = 'data/heartbeats.json'
     with open(filename, 'w') as file:
-        json.dump(data, file)
+        json.dump(data, file, indent=4)
     return data
     
 
@@ -120,20 +120,16 @@ def save_influx_data(serial, date, data):
     token = get_token()
     client = InfluxDBClient(url=INFLUX_URL, token=token, org=ORG)
     with client.write_api(write_options=SYNCHRONOUS) as write_api:
-        skip_keys = ['serial', 'reading_day']
-        for k,e in data.items():
-            if k in skip_keys:
-                continue
-            # this seems overly complex - but it works
-            # 2023-04-01 20:35:00+13:00 -> 2023-04-01 07:35:00+00:00 -> 2023-04-01 07:35:00+00:00
-            # maybe I can dt.replace(tzinfo=timezone.utc) ? Does that add the offset ?
-            real_time = datetime.strptime(k, TIME_FORMAT)
-            dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
-            dt_utc = dt_pacific.astimezone(pytz.UTC)
-            time = datetime(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour, dt_utc.minute, dt_utc.second, 0, tzinfo=timezone.utc)
-            # print('{} -> {} -> {}'.format(dt_pacific, dt_utc, time))
-            p = Point("consumption").tag("serial", serial).field("reading", e).time(time)
-            write_api.write(bucket=BUCKET, org=ORG, record=p)
+        for datastream_name, datastream_values in data['datastreams'].items():
+            for timestamp, reading in datastream_values.items():
+                # this seems overly complex - but it works
+                # 2023-04-01 20:35:00+13:00 -> 2023-04-01 07:35:00+00:00 -> 2023-04-01 07:35:00+00:00
+                # maybe I can dt.replace(tzinfo=timezone.utc) ? Does that add the offset ?
+                real_time = datetime.strptime(timestamp, TIME_FORMAT)
+                dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
+                dt_utc = dt_pacific.astimezone(pytz.UTC)
+                p = Point("consumption").tag("serial", serial).tag("datastream", datastream_name).field("reading", reading).time(dt_utc)
+                write_api.write(bucket=BUCKET, org=ORG, record=p)
 
 
 def save_data(serial, date, data):
@@ -142,7 +138,7 @@ def save_data(serial, date, data):
         os.mkdir(dirname)
     filename = 'data/{}/{}.json'.format(serial, date)
     with open(filename, 'w') as file:
-        json.dump(data, file)
+        json.dump(data, file, indent=4)
     file_count = len(os.listdir(dirname))
     meter_data = create_or_get_meters()
     entry = {

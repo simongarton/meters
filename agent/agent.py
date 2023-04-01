@@ -20,7 +20,7 @@ def load_config():
 
 def save_config(data):
     with open('config.json', 'w') as config_file:
-        json.dump(data, config_file)
+        json.dump(data, config_file, indent=4)
     return data
 
 
