@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+    <head>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/meters.css') }}">
+        <title>Meters</title>
+    </head>
+    <body>
+        <h1>meters</h1>
+        {% for meter in meters %}
+        <div class="meter"><p><b>{{  meter.serial }} </b> &nbsp; {{ meter.count }} &nbsp; {{ meter.latest }} &nbsp; {{ meter.last_seen }}</p></div>
+        {% endfor %}
+    </body>
+</html>

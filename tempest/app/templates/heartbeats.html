@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+    <head>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/meters.css') }}">
+        <title>Heartbeats</title>
+    </head>
+    <body>
+        <h1>heartbeats</h1>
+        {% for heartbeat in heartbeats %}
+        <div class="heartbeat"><p><b>{{ heartbeat.serial }}</b> &nbsp; {{ heartbeat.timestamp }}</p></div>
+        {% endfor %}
+    </body>
+</html>

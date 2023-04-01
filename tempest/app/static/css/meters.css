@@ -1,0 +1,18 @@
+body {
+    background-color: lightblue;
+    font-family: monospace;
+    font-size: 20px
+}
+
+h1 {
+    color: navy;
+    margin-left: 20px;
+}
+
+.heartbeat {
+    margin-left: 20px;
+}
+
+.meter {
+    margin-left: 20px;
+}
