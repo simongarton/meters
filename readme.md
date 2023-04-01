@@ -15,7 +15,25 @@ profiles of electricity consumption, that can be pushed to an MDMS.
 
 ### Raspberry Pi
 
-You'll need to do some stuff to get it set up. TBC.
+You'll need to do some stuff to get it set up. 
+
+- Create a directory called agent in home : /home/pi/agent
+- Copy the files : __init__.py, agent.py, config.json, meter.py, meter.sh, run.sh
+- Copy the app directory : __init__.py and routes.py
+
+#### run.sh
+
+```
+cd /home/pi/agent
+sudo flask run --host 0.0.0.0
+```
+
+#### meter.sh
+
+```
+cd /home/pi/agent
+sudo python3 /home/pi/agent/meter.py 
+```
 
 ### Tempest
 

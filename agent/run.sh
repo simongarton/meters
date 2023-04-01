@@ -6,4 +6,4 @@ echo 'Running meter agent ...'
 echo
 
 export FLASK_RUN_PORT=8001
-flask run
+flask run --host 0.0.0.0
