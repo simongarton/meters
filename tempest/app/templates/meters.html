@@ -7,7 +7,7 @@
     <body>
         <h1>meters</h1>
         {% for meter in meters %}
-        <div class="meter"><p><b>{{  meter.serial }} </b> &nbsp; {{ meter.count }} &nbsp; {{ meter.latest }} &nbsp; {{ meter.last_seen }}</p></div>
+        <div class="meter"><p><a href="/ui/meter?serial={{  meter.serial }}"><b>{{ meter.serial }}</b></a> &nbsp; {{ meter.count }} &nbsp; {{ meter.latest }} &nbsp; {{ meter.last_seen }}</p></div>
         {% endfor %}
     </body>
 </html>

@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+    <head>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/meters.css') }}">
+        <title>Meter</title>
+    </head>
+    <body>
+        <h1>{{ serial }}</h1>
+        {% for day in days %}
+        <div class="meter"><p><a href="/ui/meter?serial={{ serial }}&day={{ day }}">{{ day }}</a></p></div>
+        {% endfor %}
+    </body>
+</html>

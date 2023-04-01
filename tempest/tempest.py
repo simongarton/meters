@@ -88,6 +88,27 @@ def get_meter(serial):
     return days
 
 
+def get_meter_readings(serial, day):
+    dirname = 'data/{}'.format(serial)
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+    filename = 'data/{}/{}.json'.format(serial, day)
+    if not os.path.exists(filename):
+        return []
+    with open(filename, 'r') as file:
+        data = json.load(file)
+    readings = []
+    skip_keys = ['serial', 'reading_day']
+    for k,e in data.items():
+        if k in skip_keys:
+            continue
+        readings.append({
+            'timestamp': k,
+            'value': e
+        })
+    return readings
+
+
 def save_data(serial, date, data):
     dirname = 'data/{}'.format(serial)
     if not os.path.exists(dirname):
