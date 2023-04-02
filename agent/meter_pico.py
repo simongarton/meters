@@ -45,7 +45,10 @@ import ntptime
 # OFFS once more, have to write strftime, and strptime - not supported on MicroPython.
 # only one strptime(); 8 x strftime() and remember it's a damn tuple.
 
-TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+# this is silly - but be warned, the Python implementation of datetime.strptime() supports the T in the middle;
+# the Python implementation of time.strptime() doesnt; and the MicroPython implementation doesn't even have 
+# those methods, so even though I define them here, I end up doing it explicity.
+TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 
 def round_time(dt=None, roundTo=60):
@@ -58,7 +61,7 @@ def round_time(dt=None, roundTo=60):
 
 def strftime_time(struct_time):
     # assume I'm using '%Y-%m-%d %H:%M:%S'
-    return "{:04.0f}-{:02.0f}-{:02.0f} {:02.0f}:{:02.0f}:{:02.0f}".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+    return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
 
 def strftime_day(struct_time):
     # assume I'm using '%Y-%m-%d'
@@ -429,8 +432,9 @@ def force_upload():
         status = status + 'upload completed.'  
     print(status)    
 
+
 if __name__ == '__main__':
-    force_upload()
-    #cold_tick_loop()
+    #force_upload()
+    cold_tick_loop()
 
 

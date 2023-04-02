@@ -30,9 +30,10 @@
      },
      "variability": 0.1,
      "channels": {
-        "PositiveActiveEnergyTotal": 1.0,
-        "PositiveActiveEnergyA": 0.8,
-        "PositiveActiveEnergyB": 0.2,
-        "NegativeActiveEnergyTotal": 0
+        "Total": 1.0,
+        "House": 0.6,
+        "Garden": 0.1,
+        "Shed": 0.3,
+        "Wind": 0.5
      }
 }
