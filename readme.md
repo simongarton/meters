@@ -22,7 +22,7 @@ After a rainy Saturday of development, and a little bit of tweaking for the Pico
 
 ### InfluxDB
 
-![InfluxDB](images/influxDB.png)
+![InfluxDB](images/influx_db.png)
 
 Very early results. I need to work on the smoothing algorithm
 
