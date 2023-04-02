@@ -1,10 +1,9 @@
 
 import time
 import json
-import os
 import random
-import requests
-import socket
+import urequests
+import network
 
 #
 # meter_light.py
@@ -20,7 +19,7 @@ import socket
 # time.localtime() - returns a struct with the current time
 # time.gmtime() - returns a stuct in UTC. consider making EVERYTHING UTC as InfluxDB will want it.
 # time.time() - a float, number of seconds since epoch
-# time.localtime(n) - returns a struct based on N the number of seconds since epoch
+# time.localtime(n) - returns a tuple based on N the number of seconds since epoch
 # time.gmtime(n) - returns a struct based on N the number of seconds since epoch
 # time.mktime(struct) - turns the struc into the number of seconds since epoch
 # time.strptime('04/02/2023, 16:07:46', '%m/%d/%Y, %H:%M:%S') - get a struct from a string
@@ -29,6 +28,18 @@ import socket
 # with strptime, strftime : the bloody T in the middle isn't supported. so make it a space
 
 # if I'm using a time, make it the struct
+
+# Also need to change requests to urequests; network instead of socket.
+
+# OFFS, os.path isn't implemented.
+# I use it in 3 places to see if a file or directory exists.
+# there is this, but mip doesn't install it : https://github.com/micropython/micropython-lib
+# write my own file_exists() and create the dir anyway - TBC
+
+# OK, we can't pretty print json, no indent.
+
+# OFFS ** 2, on my laptop time.localtime() returns a struct; on the pi it returns a tuple.
+
 
 TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
@@ -68,8 +79,16 @@ def round_to_whole_day(time_struct):
     delta_minute = time_struct.tm_min * 60
     delta_second = time_struct.tm_sec
     rounded_seconds = current_seconds - delta_hour - delta_minute - delta_second
-    return time.localtime(current_seconds) 
+    return time.localtime(rounded_seconds) 
 
+
+def file_exists(filename):
+    try:
+        with open(filename, 'r') as file:
+            pass
+        return True
+    except:
+        return False
 
 def create_metadata():
     with open('data/metadata.json', 'w') as metadata:
@@ -77,7 +96,7 @@ def create_metadata():
             'last_updated': None,
             'last_uploaded': None,
         }
-        json.dump(data, metadata, indent=4)
+        json.dump(data, metadata)
 
 
 def load_metadata():
@@ -88,13 +107,13 @@ def load_metadata():
 
 def save_metadata(data):
     with open('data/metadata.json', 'w') as metadata:
-        data = json.dump(data, metadata, indent=4)
+        data = json.dump(data, metadata)
     return data
 
 
 def create_or_get_day(reading_day, empty_day):
     filename = 'data/{}.json'.format(reading_day)
-    if not os.path.exists(filename):
+    if not file_exists(filename):
         return empty_day
     with open(filename, 'r') as metadata:
         data = json.load(metadata)
@@ -103,7 +122,7 @@ def create_or_get_day(reading_day, empty_day):
 
 def get_day_data(reading_day):
     filename = 'data/{}.json'.format(reading_day)
-    if not os.path.exists(filename):
+    if not file_exists(filename):
         return None
     with open(filename, 'r') as metadata:
         data = json.load(metadata)
@@ -113,7 +132,7 @@ def get_day_data(reading_day):
 def save_updated_day(reading_day, data):
     filename = 'data/{}.json'.format(reading_day)
     with open(filename, 'w') as metadata:
-        data = json.dump(data, metadata, indent=4)
+        data = json.dump(data, metadata)
     return data
 
 
@@ -178,9 +197,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
 
 
 def create_or_load_metadata():
-    if not os.path.exists('data'):
-        os.mkdir('data')
-    if not os.path.exists('data/metadata.json'):
+    if not file_exists('data/metadata.json'):
         create_metadata()
     metadata = load_metadata()    
     return metadata
@@ -195,7 +212,7 @@ def upload_file(reading_day, config):
         return False
     # print('got data to load for {} at {}'.format(reading_day, time.localtime()))
     url = config['tempest_url']
-    response = requests.post(url + 'update', json=day_data)
+    response = urequests.post(url + 'update', json=day_data)
     return True
 
 
@@ -267,7 +284,7 @@ def heartbeat(config):
         'timestamp': time.strftime(TIME_FORMAT, time.localtime())
     }
     url = config['tempest_url']
-    response = requests.post(url + 'heartbeat', json=heartbeat_data)
+    response = urequests.post(url + 'heartbeat', json=heartbeat_data)
 
 
 def tick(config):
@@ -318,11 +335,8 @@ def load_config():
 
 
 def get_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    ip = s.getsockname()[0]
-    s.close()
-    return ip
+    wlan = network.WLAN(network.STA_IF)
+    return wlan.ifconfig()[2]
 
 
 def cold_tick():
