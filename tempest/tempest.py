@@ -3,7 +3,7 @@ import socket
 import os
 import json
 from tempest.token import get_token
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 import pytz
 

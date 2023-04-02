@@ -4,6 +4,7 @@ import random
 import urequests
 import network
 import secrets
+import ntptime
 
 #
 # meter_pico.py
@@ -57,7 +58,7 @@ def round_time(dt=None, roundTo=60):
 
 def strftime_time(struct_time):
     # assume I'm using '%Y-%m-%d %H:%M:%S'
-    return "{:04.0f}-{:02.0f}-{:02.0f} {:02.0f}:{:02.0f}:{:02.0f} ".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+    return "{:04.0f}-{:02.0f}-{:02.0f} {:02.0f}:{:02.0f}:{:02.0f}".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
 
 def strftime_day(struct_time):
     # assume I'm using '%Y-%m-%d'
@@ -235,8 +236,12 @@ def upload_file(reading_day, config):
         return False
     # print('got data to load for {} at {}'.format(reading_day, time.localtime()))
     url = config['tempest_url']
-    response = urequests.post(url + 'update', json=day_data)
-    return True
+    try:
+        response = urequests.post(url + 'update', json=day_data)        
+        return True
+    except:
+        print('failed to upload data for {} at {}'.format(reading_day, time.localtime()))
+        return False
 
 
 def upload_completed(config):
@@ -246,9 +251,9 @@ def upload_completed(config):
     current_day = strftime_day(map_timestamp_to_reading_day(usable_time))
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
     if current_day_file == None or current_day != current_day_file:
-        # print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
+        print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
         if upload_file(current_day_file, config):
-            # print("uploaded file worked, updating metadata to {}".format(current_day))
+            print("uploaded file worked, updating metadata to {}".format(current_day))
             metadata['last_uploaded'] = strftime_time(time.localtime())
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
@@ -257,7 +262,7 @@ def upload_completed(config):
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
         return True
-    # print('no need to upload file as current_day is {} and working file is also {}'.format(current_day, current_day_file))
+    print('no need to upload file as current_day is {} and working file is also {}'.format(current_day, current_day_file))
     return False
 
 
@@ -336,7 +341,10 @@ def tick(config):
     else:
         status = status + 'upload completed. '
 
-    heartbeat(config)
+    try:
+        heartbeat(config)
+    except:
+        print('no heartbeat')
 
     return {
         'status': status,
@@ -351,7 +359,10 @@ def get_day(day):
     
 
 def upload_day(day, config):
-    return upload_file(day, config)
+    try:
+        return upload_file(day, config)
+    except:
+        print('no upload possible')
 
 
 def redial(from_day, config):
@@ -373,28 +384,53 @@ def get_ip():
 
 def cold_tick_loop():
     config = load_config()
+    connect()
+    time_set = False
+    try:
+        ntptime.settime()
+        time_set = True
+    except:    
+        print('could not set time')
 
     now = time.localtime()
-    print('time now is {}, waiting for 5 minutes'.format(now))
+    print('time now is {}, waiting for whole minute'.format(now))
 
     while True:
         now = time.localtime()
-        if now[4] % 5 == 0:
+        if now[5] % 60 == 0:
             break
         time.sleep(1)
         
     now = time.localtime()            
     print('time now is {}, starting to tick'.format(now))
     while True:
+        if not time_set:
+            try:
+                ntptime.settime()
+                time_set = True
+            except:    
+                print('could not set time')
         now = time.localtime()            
         print('time now is {}, doing a tick'.format(now))
         tick(config)
         now = time.localtime()            
-        print('time now is {}, waiting for next 5 minutes'.format(now))
-        time.sleep(300)
+        print('time now is {}, waiting for next minute'.format(now))
+        time.sleep(60)  
 
     
+def force_upload():
+    config = load_config()
+    connect()
+    status = ''
+
+    if upload_completed(config) == False:
+        status = status + 'not ready to upload. '
+    else:
+        status = status + 'upload completed.'  
+    print(status)    
 
 if __name__ == '__main__':
-    cold_tick_loop()
+    force_upload()
+    #cold_tick_loop()
+
 
