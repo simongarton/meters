@@ -1,4 +1,3 @@
-
 import time
 import json
 import random
@@ -7,7 +6,7 @@ import network
 import secrets
 
 #
-# meter_light.py
+# meter_pico.py
 #
 # the main logic for a meter - generating values and storing them. this is essentially the same
 # as the main meter.py, but with datetime, requests and socket imports removed - not available on my
