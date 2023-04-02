@@ -4,6 +4,7 @@ import json
 import random
 import urequests
 import network
+import secrets
 
 #
 # meter_light.py
@@ -39,7 +40,10 @@ import network
 # OK, we can't pretty print json, no indent.
 
 # OFFS ** 2, on my laptop time.localtime() returns a struct; on the pi it returns a tuple.
+# tm_year = 0, tm_mon = 1, tm_day = 2, tm_hour = 3, tm_min = 4, tm_sec = 5, tm_wday = 6, tm_yday = 7 and no DST.
 
+# OFFS once more, have to write strftime, and strptime - not supported on MicroPython.
+# only one strptime(); 8 x strftime() and remember it's a damn tuple.
 
 TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
@@ -50,6 +54,25 @@ def round_time(dt=None, roundTo=60):
     seconds = time.mktime(dt)
     remainder = seconds % roundTo
     return time.localtime(seconds - remainder)
+
+
+def strftime_time(struct_time):
+    # assume I'm using '%Y-%m-%d %H:%M:%S'
+    return "{:04.0f}-{:02.0f}-{:02.0f} {:02.0f}:{:02.0f}:{:02.0f} ".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+
+def strftime_day(struct_time):
+    # assume I'm using '%Y-%m-%d'
+    return "{:04.0f}-{:02.0f}-{:02.0f}".format(struct_time[0], struct_time[1], struct_time[2])
+
+def strptime_time(struct_time_string):
+    # assume I'm using '%Y-%m-%d %H:%M:%S'
+    year = int(struct_time_string[:4])
+    month = int(struct_time_string[5:7])
+    day = int(struct_time_string[8:10])
+    hour = int(struct_time_string[11:13])
+    min = int(struct_time_string[14:16])
+    sec = int(struct_time_string[17:19])
+    return time.mktime((year, month, day, hour, min, sec, 1, 1))
 
 
 def seconds_between(later, earlier):
@@ -75,9 +98,9 @@ def add_delta(time_struct, years=None, days=None, hours=None, minutes=None, seco
 
 def round_to_whole_day(time_struct):
     current_seconds = time.mktime(time_struct)
-    delta_hour = time_struct.tm_hour * 60 * 60
-    delta_minute = time_struct.tm_min * 60
-    delta_second = time_struct.tm_sec
+    delta_hour = time_struct[3] * 60 * 60
+    delta_minute = time_struct[4] * 60
+    delta_second = time_struct[5]
     rounded_seconds = current_seconds - delta_hour - delta_minute - delta_second
     return time.localtime(rounded_seconds) 
 
@@ -89,6 +112,7 @@ def file_exists(filename):
         return True
     except:
         return False
+    
 
 def create_metadata():
     with open('data/metadata.json', 'w') as metadata:
@@ -138,14 +162,14 @@ def save_updated_day(reading_day, data):
 
 def map_timestamp_to_reading_day(working_timestamp):
     # 5MS trick : midnight is the correct day, otherwise we need to add 1
-    reading_day = working_timestamp if (working_timestamp.tm_hour == 0 and working_timestamp.tm_min == 0) else add_delta(working_timestamp, days=1)
+    reading_day = working_timestamp if (working_timestamp[3] == 0 and working_timestamp[4] == 0) else add_delta(working_timestamp, days=1)
     reading_day = round_to_whole_day(reading_day)
     # print('updated {} to reading_time {}'.format(working_timestamp, reading_day))
     return reading_day
 
 
 def generate_reading(usable_time, config, channel_factor):
-    working_hour = usable_time.tm_hour
+    working_hour = usable_time[3]
     profile_data = config['profile'] if 'profile' in config else {}
     profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
     variability = config['variability'] if 'variability' in config else 0
@@ -175,7 +199,7 @@ def build_datastream_block(channel_data):
 def create_or_update_readings(usable_time, serial, config, snapshot_block):
     updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
-    reading_day = time.strftime(DAY_FORMAT, reading_time)
+    reading_day = strftime_day(reading_time)
     channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
     datastream_block = build_datastream_block(channel_data)
     empty_day = {
@@ -189,7 +213,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
 
     for channel_name, channel_factor in channel_data.items():
         reading = generate_reading(usable_time, config, channel_factor)
-        interval_key = time.strftime(TIME_FORMAT, usable_time)
+        interval_key = strftime_time(usable_time)
         day['datastreams'][channel_name][interval_key] = reading
         updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
@@ -220,13 +244,13 @@ def upload_completed(config):
     metadata = create_or_load_metadata()   
     interval = config['interval_min'] * 60 
     usable_time = round_time(time.localtime(), interval)
-    current_day = time.strftime(DAY_FORMAT, map_timestamp_to_reading_day(usable_time))
+    current_day = strftime_day(map_timestamp_to_reading_day(usable_time))
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
     if current_day_file == None or current_day != current_day_file:
         # print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
         if upload_file(current_day_file, config):
             # print("uploaded file worked, updating metadata to {}".format(current_day))
-            metadata['last_uploaded'] = time.strftime(TIME_FORMAT, time.localtime())
+            metadata['last_uploaded'] = strftime_time(time.localtime())
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
         else:
@@ -247,7 +271,7 @@ def tick_completed(config):
     if last_updated == None:
         ready = True
     else:
-        last_updated_time = time.strptime(TIME_FORMAT, last_updated)
+        last_updated_time = time.localtime(strptime_time(last_updated))
         diff = seconds_between(time.localtime(), last_updated_time)    
         if diff > interval:
             ready = True
@@ -269,19 +293,28 @@ def tick_completed(config):
     updated_snapshot_block = create_or_update_readings(usable_time, serial, config, snapshot_block)
 
     metadata['snapshots'] = updated_snapshot_block
-    metadata['last_updated'] = time.strftime(TIME_FORMAT, usable_time)
+    metadata['last_updated'] = strftime_time(usable_time)
 
     save_metadata(metadata)
     return True
 
 
+def connect():
+    print('connecting to {}'.format(secrets.SSID))
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(secrets.SSID, secrets.PASSWORD)
+    print('connected to wifi : {}'.format(wlan.isconnected()))
+
+
 def heartbeat(config):
+    connect()
     serial = config['serial'] if 'serial' in config else 'no-serial-number'
     ip = config['ip'] if 'ip' in config else 'no-ip'
     heartbeat_data = {
         'serial': serial,
         'ip': ip,
-        'timestamp': time.strftime(TIME_FORMAT, time.localtime())
+        'timestamp': strftime_time(time.localtime())
     }
     url = config['tempest_url']
     response = urequests.post(url + 'heartbeat', json=heartbeat_data)
@@ -308,13 +341,13 @@ def tick(config):
 
     return {
         'status': status,
-        'now': time.strftime(TIME_FORMAT, time.localtime())
+        'now': strftime_time(time.localtime())
     }
 
 
 def get_day(day):
     # another 5MS hack - today is actually yesterday
-    day = day if day is not None else time.strftime(DAY_FORMAT, add_delta(time.localtime(), days=1))
+    day = day if day is not None else strftime_day(add_delta(time.localtime(), days=1))
     return get_day_data(day)
     
 
@@ -347,3 +380,4 @@ def cold_tick():
 # I need this as I run this script from a cron job
 if __name__ == '__main__':
     cold_tick()
+
