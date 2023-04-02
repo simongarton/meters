@@ -17,11 +17,11 @@ import secrets
 # https://www.programiz.com/python-programming/time
 
 # With time, I can do the following
-# time.localtime() - returns a struct with the current time
-# time.gmtime() - returns a stuct in UTC. consider making EVERYTHING UTC as InfluxDB will want it.
+# time.localtime() - returns a struct/tuple with the current time
+# time.gmtime() - returns a struct/tuple in UTC. consider making EVERYTHING UTC as InfluxDB will want it.
 # time.time() - a float, number of seconds since epoch
-# time.localtime(n) - returns a tuple based on N the number of seconds since epoch
-# time.gmtime(n) - returns a struct based on N the number of seconds since epoch
+# time.localtime(n) - returns a struct/tuple based on N the number of seconds since epoch
+# time.gmtime(n) - returns a struct/tuple based on N the number of seconds since epoch
 # time.mktime(struct) - turns the struc into the number of seconds since epoch
 # time.strptime('04/02/2023, 16:07:46', '%m/%d/%Y, %H:%M:%S') - get a struct from a string
 # time.strftime("%m/%d/%Y, %H:%M:%S", n) - turns a struct into a string
@@ -372,12 +372,30 @@ def get_ip():
     return wlan.ifconfig()[2]
 
 
-def cold_tick():
+def cold_tick_loop():
     config = load_config()
-    tick(config)
+
+    now = time.localtime()
+    print('time now is {}, waiting for 5 minutes'.format(now))
+
+    while True:
+        now = time.localtime()
+        if now[4] % 5 == 0:
+            break
+        time.sleep(1)
+        
+    now = time.localtime()            
+    print('time now is {}, starting to tick'.format(now))
+    while True:
+        now = time.localtime()            
+        print('time now is {}, doing a tick'.format(now))
+        tick(config)
+        now = time.localtime()            
+        print('time now is {}, waiting for next 5 minutes'.format(now))
+        time.sleep(300)
+
     
 
-# I need this as I run this script from a cron job
 if __name__ == '__main__':
-    cold_tick()
+    cold_tick_loop()
 
