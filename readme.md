@@ -28,11 +28,11 @@ Very early results. I need to work on the smoothing algorithm
 
 ### Raspberry Pi 3B
 
-![Pi 3B (kili)](images/kili.png)
+![Pi 3B (kili)](images/kili.jpg)
 
 ### Raspberry Pico W
 
-![Pico (pico)](images/pico.png)
+![Pico (pico)](images/pico.jpg)
 
 ## Getting Started
 
