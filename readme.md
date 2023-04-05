@@ -73,6 +73,8 @@ This acts as the head end, plus the asset management system.
 
 - All meters online will ping Tempest every minute as a heartbeat
 - Periodically, the meters will upload the previous day - every time the working day changes, they upload the previous one.
+- All data is persisted in it's raw JSON format.
+- All data is also persisted to InfluxDB.
 - Tempest can update their config, and possibly their business logic
 - There is a crude API:
 

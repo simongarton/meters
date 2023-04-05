@@ -5,6 +5,7 @@ import urequests
 import network
 import secrets
 import ntptime
+import os
 
 #
 # meter_pico.py
@@ -176,7 +177,7 @@ def generate_reading(usable_time, config, channel_factor):
     profile_data = config['profile'] if 'profile' in config else {}
     profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
     variability = config['variability'] if 'variability' in config else 0
-    reading = random.randint(0, profile_value * 10) / 10.0
+    reading = profile_value
     varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
     channel_reading = round(varied_reading * channel_factor, 3)
     return channel_reading
@@ -394,6 +395,11 @@ def cold_tick_loop():
         time_set = True
     except:    
         print('could not set time')
+
+    try:
+        os.mkdir('data')
+    except:
+        pass
 
     now = time.localtime()
     print('time now is {}, waiting for whole minute'.format(now))
