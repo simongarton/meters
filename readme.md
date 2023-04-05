@@ -32,7 +32,7 @@ Very early results. I need to work on the smoothing algorithm
 
 ### Raspberry Pico W
 
-![Pico (pico)](images/pico.jpg)
+![Pico (pico)](images/picos.jpg)
 
 ## Getting Started
 
