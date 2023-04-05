@@ -5,25 +5,12 @@ import os
 import random
 import requests
 import socket
-import pytz
-
-# not for the Pi ! need to fiddle with this I think
-from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import SYNCHRONOUS
-INFLUX_URL = 'http://localhost:8086'
-ORG = 'work'
-BUCKET = 'meters'
-
-# delete me !
-def get_token():
-    return 'qQ0s1ZegamkvSUS2EbPQPK7AGcly3btOG-ZfDuGakBF5HkhBqg5xP4OJ9J7ULdwo6GK62sao9oIlIASefrWiNQ=='
 
 #
 # meter.py
 #
 # the main logic for a meter - generating values and storing them.
 #
-
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
@@ -74,8 +61,8 @@ def get_day_data(reading_day):
     filename = 'data/{}.json'.format(reading_day)
     if not os.path.exists(filename):
         return None
-    with open(filename, 'r') as metadata:
-        data = json.load(metadata)
+    with open(filename, 'r') as payload:
+        data = json.load(payload)
     return data
 
 
@@ -102,7 +89,7 @@ def generate_reading(usable_time, config, channel_factor):
     reading = profile_value
     varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
     channel_reading = round(varied_reading * channel_factor, 3)
-    return channel_reading
+    return channel_reading if channel_reading > 0 else 0
         
 
 def create_or_get_snapshot_block(config, metadata):
@@ -176,6 +163,8 @@ def upload_completed(config):
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
     if current_day_file == None or current_day != current_day_file:
         # print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
+        # I actually upload the file each time - but leave this logic here in case I take it out again, or if
+        # one of those uplaods fails.
         if upload_file(current_day_file, config):
             # print("uploaded file worked, updating metadata to {}".format(current_day))
             metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
@@ -250,6 +239,12 @@ def tick(config):
     if tick_completed(config) == False:
         status = status + 'not ready to tick. '
     else:
+        # upload the current file anyway
+        metadata = create_or_load_metadata()   
+        current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
+        if current_day_file:    
+            upload_file(current_day_file, config)
+            status = status + 'partial file uploaded. '
         status = status + 'tick completed. '
 
     # check to see if the PREVIOUS file that I was writing to has been uploaded
@@ -312,24 +307,6 @@ def generate_days(start_day, n):
         working_day = datetime.strptime(start_day, DAY_FORMAT) + timedelta(days=day)
         generate_day(datetime.strftime(working_day, DAY_FORMAT))
         data = get_day_data(datetime.strftime(working_day, DAY_FORMAT))
-        save_influx_data(serial, None, data)
-
-
-def save_influx_data(serial, date, data):
-    token = get_token()
-    client = InfluxDBClient(url=INFLUX_URL, token=token, org=ORG)
-    with client.write_api(write_options=SYNCHRONOUS) as write_api:
-        for datastream_name, datastream_values in data['datastreams'].items():
-            for timestamp, reading in datastream_values.items():
-                # this seems overly complex - but it works
-                # 2023-04-01 20:35:00+13:00 -> 2023-04-01 07:35:00+00:00 -> 2023-04-01 07:35:00+00:00
-                # maybe I can dt.replace(tzinfo=timezone.utc) ? Does that add the offset ?
-                real_time = datetime.strptime(timestamp, TIME_FORMAT)
-                dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
-                dt_utc = dt_pacific.astimezone(pytz.UTC)
-                # this is looking very slow - but it does work
-                p = Point("consumption").tag("serial", serial).tag("datastream", datastream_name).field("reading", reading).time(dt_utc)
-                write_api.write(bucket=BUCKET, org=ORG, record=p)
 
 
 def generate_day(reading_day):
@@ -352,5 +329,7 @@ def generate_day(reading_day):
 # I need this as I run this script from a cron job
 if __name__ == '__main__':
     # for running from a cron job - cold as there is no config loaded, and tick requires it
-    # cold_tick()
-    generate_days('2023-03-05', 31)
+    cold_tick()
+    
+    # to generate some days of history
+    # generate_days('2023-03-05', 31)

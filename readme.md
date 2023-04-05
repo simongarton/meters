@@ -67,6 +67,10 @@ PASSWORD='my-secret-password'
 
 and `config.json`, and you must create the folder `data` (to be fixed.)
 
+There is confusion over the `urequests` library. It's imported in the code; I installed it on `pico` and it's working; 
+I forgot to install it on `dori` and it's ... working. Well, it was heartbeating, but I didn't see a file uploaded.
+Installed `micropython_urequests` and I now have a file. How did it heartbeat ?
+
 ### Tempest
 
 This acts as the head end, plus the asset management system.
