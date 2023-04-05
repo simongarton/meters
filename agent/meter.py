@@ -5,6 +5,18 @@ import os
 import random
 import requests
 import socket
+import pytz
+
+# not for the Pi ! need to fiddle with this I think
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
+INFLUX_URL = 'http://localhost:8086'
+ORG = 'work'
+BUCKET = 'meters'
+
+# delete me !
+def get_token():
+    return 'qQ0s1ZegamkvSUS2EbPQPK7AGcly3btOG-ZfDuGakBF5HkhBqg5xP4OJ9J7ULdwo6GK62sao9oIlIASefrWiNQ=='
 
 #
 # meter.py
@@ -94,8 +106,8 @@ def generate_reading(usable_time, config, channel_factor):
         
 
 def create_or_get_snapshot_block(config, metadata):
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
-    snapshot_data = metadata['snapshots'] if 'snapshots' in config else {}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
+    snapshot_data = metadata['snapshots'] if 'snapshots' in metadata else {}
     snapshot_block = {}
     for channel_name, channel_factor in channel_data.items():
         snapshot_value = snapshot_data[channel_name] if channel_name in snapshot_data else 0
@@ -114,7 +126,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = datetime.strftime(reading_time, DAY_FORMAT)
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
     datastream_block = build_datastream_block(channel_data)
     empty_day = {
         'serial': serial,
@@ -203,6 +215,11 @@ def tick_completed(config):
     usable_time = round_time(datetime.now(), interval)
     # print('converted {} to usable time {}'.format(datetime.now(), usable_time))
 
+    save_reading_for_time(usable_time, config, metadata)
+
+
+def save_reading_for_time(usable_time, config, metadata):    
+
     snapshot_block = create_or_get_snapshot_block(config, metadata)
 
     serial = config['serial'] if 'serial' in config else 'no-serial-number'
@@ -285,8 +302,55 @@ def get_ip():
 def cold_tick():
     config = load_config()
     tick(config)
+
+
+def generate_days(start_day, n):
+    config = load_config()
+    serial = config['serial']
+
+    for day in range(0, n):
+        working_day = datetime.strptime(start_day, DAY_FORMAT) + timedelta(days=day)
+        generate_day(datetime.strftime(working_day, DAY_FORMAT))
+        data = get_day_data(datetime.strftime(working_day, DAY_FORMAT))
+        save_influx_data(serial, None, data)
+
+
+def save_influx_data(serial, date, data):
+    token = get_token()
+    client = InfluxDBClient(url=INFLUX_URL, token=token, org=ORG)
+    with client.write_api(write_options=SYNCHRONOUS) as write_api:
+        for datastream_name, datastream_values in data['datastreams'].items():
+            for timestamp, reading in datastream_values.items():
+                # this seems overly complex - but it works
+                # 2023-04-01 20:35:00+13:00 -> 2023-04-01 07:35:00+00:00 -> 2023-04-01 07:35:00+00:00
+                # maybe I can dt.replace(tzinfo=timezone.utc) ? Does that add the offset ?
+                real_time = datetime.strptime(timestamp, TIME_FORMAT)
+                dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
+                dt_utc = dt_pacific.astimezone(pytz.UTC)
+                # this is looking very slow - but it does work
+                p = Point("consumption").tag("serial", serial).tag("datastream", datastream_name).field("reading", reading).time(dt_utc)
+                write_api.write(bucket=BUCKET, org=ORG, record=p)
+
+
+def generate_day(reading_day):
+    config = load_config()
+    interval = config['interval_min']
+
+    working_day = datetime.strptime(reading_day, DAY_FORMAT) + timedelta(days=-1)
+    start_day = working_day.day
+
+    print('creating day for {}'.format(reading_day))
+
+    while working_day.day == start_day:
+        # 5MS start at 5 past midnight
+        working_day = working_day + timedelta(minutes=interval)
+        # I think I have to do this each time
+        metadata = create_or_load_metadata()   
+        save_reading_for_time(working_day, config, metadata)
     
 
 # I need this as I run this script from a cron job
 if __name__ == '__main__':
-    cold_tick()
+    # for running from a cron job - cold as there is no config loaded, and tick requires it
+    # cold_tick()
+    generate_days('2023-03-05', 31)

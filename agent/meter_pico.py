@@ -5,7 +5,6 @@ import urequests
 import network
 import secrets
 import ntptime
-import os
 
 #
 # meter_pico.py
@@ -177,15 +176,15 @@ def generate_reading(usable_time, config, channel_factor):
     profile_data = config['profile'] if 'profile' in config else {}
     profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
     variability = config['variability'] if 'variability' in config else 0
-    reading = profile_value
+    reading = random.randint(0, profile_value * 10) / 10.0
     varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
     channel_reading = round(varied_reading * channel_factor, 3)
     return channel_reading
         
 
 def create_or_get_snapshot_block(config, metadata):
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
-    snapshot_data = metadata['snapshots'] if 'snapshots' in config else {}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
+    snapshot_data = metadata['snapshots'] if 'snapshots' in metadata else {}
     snapshot_block = {}
     for channel_name, channel_factor in channel_data.items():
         snapshot_value = snapshot_data[channel_name] if channel_name in snapshot_data else 0
@@ -204,7 +203,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = strftime_day(reading_time)
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
     datastream_block = build_datastream_block(channel_data)
     empty_day = {
         'serial': serial,
@@ -395,11 +394,6 @@ def cold_tick_loop():
         time_set = True
     except:    
         print('could not set time')
-
-    try:
-        os.mkdir('data')
-    except:
-        pass
 
     now = time.localtime()
     print('time now is {}, waiting for whole minute'.format(now))
