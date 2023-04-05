@@ -12,7 +12,6 @@ import socket
 # the main logic for a meter - generating values and storing them.
 #
 
-
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 
@@ -62,8 +61,8 @@ def get_day_data(reading_day):
     filename = 'data/{}.json'.format(reading_day)
     if not os.path.exists(filename):
         return None
-    with open(filename, 'r') as metadata:
-        data = json.load(metadata)
+    with open(filename, 'r') as payload:
+        data = json.load(payload)
     return data
 
 
@@ -90,12 +89,12 @@ def generate_reading(usable_time, config, channel_factor):
     reading = profile_value
     varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
     channel_reading = round(varied_reading * channel_factor, 3)
-    return channel_reading
+    return channel_reading if channel_reading > 0 else 0
         
 
 def create_or_get_snapshot_block(config, metadata):
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
-    snapshot_data = metadata['snapshots'] if 'snapshots' in config else {}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
+    snapshot_data = metadata['snapshots'] if 'snapshots' in metadata else {}
     snapshot_block = {}
     for channel_name, channel_factor in channel_data.items():
         snapshot_value = snapshot_data[channel_name] if channel_name in snapshot_data else 0
@@ -114,7 +113,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = datetime.strftime(reading_time, DAY_FORMAT)
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
     datastream_block = build_datastream_block(channel_data)
     empty_day = {
         'serial': serial,
@@ -164,6 +163,8 @@ def upload_completed(config):
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
     if current_day_file == None or current_day != current_day_file:
         # print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
+        # I actually upload the file each time - but leave this logic here in case I take it out again, or if
+        # one of those uplaods fails.
         if upload_file(current_day_file, config):
             # print("uploaded file worked, updating metadata to {}".format(current_day))
             metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
@@ -203,6 +204,11 @@ def tick_completed(config):
     usable_time = round_time(datetime.now(), interval)
     # print('converted {} to usable time {}'.format(datetime.now(), usable_time))
 
+    save_reading_for_time(usable_time, config, metadata)
+
+
+def save_reading_for_time(usable_time, config, metadata):    
+
     snapshot_block = create_or_get_snapshot_block(config, metadata)
 
     serial = config['serial'] if 'serial' in config else 'no-serial-number'
@@ -233,6 +239,12 @@ def tick(config):
     if tick_completed(config) == False:
         status = status + 'not ready to tick. '
     else:
+        # upload the current file anyway
+        metadata = create_or_load_metadata()   
+        current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
+        if current_day_file:    
+            upload_file(current_day_file, config)
+            status = status + 'partial file uploaded. '
         status = status + 'tick completed. '
 
     # check to see if the PREVIOUS file that I was writing to has been uploaded
@@ -285,8 +297,39 @@ def get_ip():
 def cold_tick():
     config = load_config()
     tick(config)
+
+
+def generate_days(start_day, n):
+    config = load_config()
+    serial = config['serial']
+
+    for day in range(0, n):
+        working_day = datetime.strptime(start_day, DAY_FORMAT) + timedelta(days=day)
+        generate_day(datetime.strftime(working_day, DAY_FORMAT))
+        data = get_day_data(datetime.strftime(working_day, DAY_FORMAT))
+
+
+def generate_day(reading_day):
+    config = load_config()
+    interval = config['interval_min']
+
+    working_day = datetime.strptime(reading_day, DAY_FORMAT) + timedelta(days=-1)
+    start_day = working_day.day
+
+    print('creating day for {}'.format(reading_day))
+
+    while working_day.day == start_day:
+        # 5MS start at 5 past midnight
+        working_day = working_day + timedelta(minutes=interval)
+        # I think I have to do this each time
+        metadata = create_or_load_metadata()   
+        save_reading_for_time(working_day, config, metadata)
     
 
 # I need this as I run this script from a cron job
 if __name__ == '__main__':
+    # for running from a cron job - cold as there is no config loaded, and tick requires it
     cold_tick()
+    
+    # to generate some days of history
+    # generate_days('2023-03-05', 31)

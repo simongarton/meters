@@ -151,8 +151,8 @@ def get_day_data(reading_day):
     filename = 'data/{}.json'.format(reading_day)
     if not file_exists(filename):
         return None
-    with open(filename, 'r') as metadata:
-        data = json.load(metadata)
+    with open(filename, 'r') as payload:
+        data = json.load(payload)
     return data
 
 
@@ -176,15 +176,15 @@ def generate_reading(usable_time, config, channel_factor):
     profile_data = config['profile'] if 'profile' in config else {}
     profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
     variability = config['variability'] if 'variability' in config else 0
-    reading = random.randint(0, profile_value * 10) / 10.0
+    reading = profile_value
     varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
     channel_reading = round(varied_reading * channel_factor, 3)
-    return channel_reading
+    return channel_reading if channel_reading > 0 else 0
         
 
 def create_or_get_snapshot_block(config, metadata):
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
-    snapshot_data = metadata['snapshots'] if 'snapshots' in config else {}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
+    snapshot_data = metadata['snapshots'] if 'snapshots' in metadata else {}
     snapshot_block = {}
     for channel_name, channel_factor in channel_data.items():
         snapshot_value = snapshot_data[channel_name] if channel_name in snapshot_data else 0
@@ -203,7 +203,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = strftime_day(reading_time)
-    channel_data = config['channels'] if 'channels' in config else {"PositiveActiveEnergyTotal":1.0}
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
     datastream_block = build_datastream_block(channel_data)
     empty_day = {
         'serial': serial,
@@ -333,6 +333,12 @@ def tick(config):
     if tick_completed(config) == False:
         status = status + 'not ready to tick. '
     else:
+        # upload the current file anyway
+        metadata = create_or_load_metadata()   
+        current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
+        if current_day_file:    
+            upload_file(current_day_file, config)
+            status = status + 'partial file uploaded. '
         status = status + 'tick completed. '
 
     # check to see if the PREVIOUS file that I was writing to has been uploaded
