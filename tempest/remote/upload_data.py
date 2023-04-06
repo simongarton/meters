@@ -12,7 +12,7 @@ from influxdb_token import get_token
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
+TIME_FORMAT = '%Y-%m-%dT%H:%M:%S%z'
 
 INFLUX_URL = 'http://localhost:8086'
 ORG = 'home'
@@ -31,8 +31,24 @@ def save_influx_data(serial, date, data):
                 real_time = datetime.strptime(timestamp, TIME_FORMAT)
                 dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
                 dt_utc = dt_pacific.astimezone(pytz.UTC)
-                p = Point("consumption").tag("serial", serial).tag("datastream", datastream_name).field("reading", reading).time(dt_utc)
+                p = Point("consumption").tag("serial", serial).tag("datastream", datastream_name).field("reading", reading * 1.0).time(dt_utc)
                 write_api.write(bucket=BUCKET, org=ORG, record=p)
+
+
+
+# I have measurements from the picos at "2023-04-06T17:40:00": 4.138, which is correct for UTC, but doesn't have time zone info
+# associateed with it.
+# that is weirdly being forced into a local time same digits.
+# kili has "2023-04-07T05:45:00" which is the correct local time, no time zone associated with it.
+# I use time.localtime() in the picos
+# 2. have a look at time.gmtime() on the pico, what does it do ?
+# 1. since I write out my own strftime on the pico, can I add a Z to get it to UTC ? how does strptime() on the Pi 3 then handle it
+#  ... ignores the Z. No, it needs %Z
+# 
+# >>> TIME_FORMAT = '%Y-%m-%dT%H:%M:%S%z'
+# >>> print(datetime.strptime('2023-04-06T17:40:00Z', TIME_FORMAT))
+# 2023-04-06 17:40:00+00:00
+# >>> 
 
 
 def load_data():
