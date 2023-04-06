@@ -25,21 +25,16 @@ def save_influx_data(serial, date, data):
     with client.write_api(write_options=SYNCHRONOUS) as write_api:
         for datastream_name, datastream_values in data['datastreams'].items():
             for timestamp, reading in datastream_values.items():
-                # this seems overly complex - but it works
-                # 2023-04-01 20:35:00+13:00 -> 2023-04-01 07:35:00+00:00 -> 2023-04-01 07:35:00+00:00
-                # maybe I can dt.replace(tzinfo=timezone.utc) ? Does that add the offset ?
-                real_time = datetime.strptime(timestamp, TIME_FORMAT)
-                dt_pacific = real_time.astimezone(pytz.timezone('Pacific/Auckland'))
-                dt_utc = dt_pacific.astimezone(pytz.UTC)
-                p = Point("consumption").tag("serial", serial).tag("datastream", datastream_name).field("reading", reading * 1.0).time(dt_utc)
+                utc_time = datetime.strptime(timestamp, TIME_FORMAT)
+                p = Point("consumption").tag("serial", serial).tag("datastream", datastream_name).field("reading", reading * 1.0).time(utc_time)
                 write_api.write(bucket=BUCKET, org=ORG, record=p)
 
 
 
 # I have measurements from the picos at "2023-04-06T17:40:00": 4.138, which is correct for UTC, but doesn't have time zone info
-# associateed with it.
+# associated with it.
 # that is weirdly being forced into a local time same digits.
-# kili has "2023-04-07T05:45:00" which is the correct local time, no time zone associated with it.
+# kili has "2023-04-07T05:45:00" which is the correct LOCAL time, no time zone associated with it.
 # I use time.localtime() in the picos
 # 2. have a look at time.gmtime() on the pico, what does it do ?
 # 1. since I write out my own strftime on the pico, can I add a Z to get it to UTC ? how does strptime() on the Pi 3 then handle it
