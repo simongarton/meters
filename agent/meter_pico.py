@@ -5,51 +5,26 @@ import urequests
 import network
 import secrets
 import ntptime
+import os
 
 #
 # meter_pico.py
 #
 # the main logic for a meter - generating values and storing them. this is essentially the same
-# as the main meter.py, but with datetime, requests and socket imports removed - not available on my
-# Pico H (which has no wifi connectivity.)
+# as the main meter.py, but with various fixes for Picos running Micropython : datetime is gone,
+# time.strptime() and time.strftime() don't work like datetime (and doesn't even work like time
+# on real Python), urequests, no os.path.exists(), have to set time on startup using
+# wifi secrets.
+
+# Important
 #
-# https://docs.python.org/3/library/time.html#module-time
-# https://www.programiz.com/python-programming/time
+# Using time.localtime() and then writing out the times, I ended up with a UTC time (!) but not time zone aware.
+# I have added strftime_time_utc() for when I write out to the file, to include a Z on the end - which I can then parse later
+# I have also updated the logic for checking last_uploaded, last_updated as I also parse that manually (and the Z is ignored.)
 
-# With time, I can do the following
-# time.localtime() - returns a struct/tuple with the current time
-# time.gmtime() - returns a struct/tuple in UTC. consider making EVERYTHING UTC as InfluxDB will want it.
-# time.time() - a float, number of seconds since epoch
-# time.localtime(n) - returns a struct/tuple based on N the number of seconds since epoch
-# time.gmtime(n) - returns a struct/tuple based on N the number of seconds since epoch
-# time.mktime(struct) - turns the struc into the number of seconds since epoch
-# time.strptime('04/02/2023, 16:07:46', '%m/%d/%Y, %H:%M:%S') - get a struct from a string
-# time.strftime("%m/%d/%Y, %H:%M:%S", n) - turns a struct into a string
-
-# with strptime, strftime : the bloody T in the middle isn't supported. so make it a space
-
-# if I'm using a time, make it the struct
-
-# Also need to change requests to urequests; network instead of socket.
-
-# OFFS, os.path isn't implemented.
-# I use it in 3 places to see if a file or directory exists.
-# there is this, but mip doesn't install it : https://github.com/micropython/micropython-lib
-# write my own file_exists() and create the dir anyway - TBC
-
-# OK, we can't pretty print json, no indent.
-
-# OFFS ** 2, on my laptop time.localtime() returns a struct; on the pi it returns a tuple.
-# tm_year = 0, tm_mon = 1, tm_day = 2, tm_hour = 3, tm_min = 4, tm_sec = 5, tm_wday = 6, tm_yday = 7 and no DST.
-
-# OFFS once more, have to write strftime, and strptime - not supported on MicroPython.
-# only one strptime(); 8 x strftime() and remember it's a damn tuple.
-
-# this is silly - but be warned, the Python implementation of datetime.strptime() supports the T in the middle;
-# the Python implementation of time.strptime() doesnt; and the MicroPython implementation doesn't even have 
-# those methods, so even though I define them here, I end up doing it explicity.
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
+
 
 def round_time(dt=None, roundTo=60):
     # pass in the struct
@@ -59,16 +34,18 @@ def round_time(dt=None, roundTo=60):
     return time.localtime(seconds - remainder)
 
 
-def strftime_time(struct_time):
+def strftime_time_utc(struct_time):
     # assume I'm using '%Y-%m-%d %H:%M:%S'
-    return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+    return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}Z".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+
 
 def strftime_day(struct_time):
     # assume I'm using '%Y-%m-%d'
     return "{:04.0f}-{:02.0f}-{:02.0f}".format(struct_time[0], struct_time[1], struct_time[2])
 
+
 def strptime_time(struct_time_string):
-    # assume I'm using '%Y-%m-%d %H:%M:%S'
+    # assume I'm using '%Y-%m-%d %H:%M:%S' with or without the Z
     year = int(struct_time_string[:4])
     month = int(struct_time_string[5:7])
     day = int(struct_time_string[8:10])
@@ -216,7 +193,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
 
     for channel_name, channel_factor in channel_data.items():
         reading = generate_reading(usable_time, config, channel_factor)
-        interval_key = strftime_time(usable_time)
+        interval_key = strftime_time_utc(usable_time)
         day['datastreams'][channel_name][interval_key] = reading
         updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
@@ -257,7 +234,7 @@ def upload_completed(config):
         print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
         if upload_file(current_day_file, config):
             print("uploaded file worked, updating metadata to {}".format(current_day))
-            metadata['last_uploaded'] = strftime_time(time.localtime())
+            metadata['last_uploaded'] = strftime_time_utc(time.localtime())
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
         else:
@@ -300,7 +277,7 @@ def tick_completed(config):
     updated_snapshot_block = create_or_update_readings(usable_time, serial, config, snapshot_block)
 
     metadata['snapshots'] = updated_snapshot_block
-    metadata['last_updated'] = strftime_time(usable_time)
+    metadata['last_updated'] = strftime_time_utc(usable_time)
 
     save_metadata(metadata)
     return True
@@ -321,7 +298,7 @@ def heartbeat(config):
     heartbeat_data = {
         'serial': serial,
         'ip': ip,
-        'timestamp': strftime_time(time.localtime())
+        'timestamp': strftime_time_utc(time.localtime())
     }
     url = config['tempest_url']
     response = urequests.post(url + 'heartbeat', json=heartbeat_data)
@@ -357,7 +334,7 @@ def tick(config):
 
     return {
         'status': status,
-        'now': strftime_time(time.localtime())
+        'now': strftime_time_utc(time.localtime())
     }
 
 
@@ -440,6 +417,11 @@ def force_upload():
 
 
 if __name__ == '__main__':
+    try:
+        os.mkdir('data')
+    except:
+        pass
+
     #force_upload()
     cold_tick_loop()
 

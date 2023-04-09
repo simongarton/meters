@@ -12,7 +12,10 @@ import socket
 # the main logic for a meter - generating values and storing them.
 #
 
+# TODO I should combine these two. the _UTC version is only used on writing out to the file,
+# but I think it will work for all uses.
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
+TIME_FORMAT_UTC = '%Y-%m-%dT%H:%M:%SZ'
 DAY_FORMAT = '%Y-%m-%d'
 
 def round_time(dt=None, roundTo=60):
@@ -21,7 +24,7 @@ def round_time(dt=None, roundTo=60):
     roundTo : Closest number of seconds to round to, default 1 minute.
     Author: Thierry Husson 2012 - Use it as you want but don't blame me.
     """
-    if dt == None : dt = datetime.datetime.now()
+    if dt == None : dt = datetime.datetime.utcnow()
     seconds = (dt.replace(tzinfo=None) - dt.min).seconds
     rounding = (seconds+roundTo/2) // roundTo * roundTo
     return dt + timedelta(0,rounding-seconds,-dt.microsecond)
@@ -126,7 +129,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
 
     for channel_name, channel_factor in channel_data.items():
         reading = generate_reading(usable_time, config, channel_factor)
-        interval_key = datetime.strftime(usable_time, TIME_FORMAT)
+        interval_key = datetime.strftime(usable_time, TIME_FORMAT_UTC)
         day['datastreams'][channel_name][interval_key] = reading
         updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
@@ -147,9 +150,9 @@ def upload_file(reading_day, config):
         return True
     day_data = get_day_data(reading_day)
     if day_data == None:
-        print('no data to load for {} at {}'.format(reading_day, datetime.now()))
+        print('no data to load for {} at {}'.format(reading_day, datetime.utcnow()))
         return False
-    # print('got data to load for {} at {}'.format(reading_day, datetime.now()))
+    # print('got data to load for {} at {}'.format(reading_day, datetime.utcnow()))
     url = config['tempest_url']
     response = requests.post(url + 'update', json=day_data)
     return True
@@ -158,7 +161,7 @@ def upload_file(reading_day, config):
 def upload_completed(config):
     metadata = create_or_load_metadata()   
     interval = config['interval_min'] * 60 
-    usable_time = round_time(datetime.now(), interval)
+    usable_time = round_time(datetime.utcnow(), interval)
     current_day = datetime.strftime(map_timestamp_to_reading_day(usable_time), DAY_FORMAT)
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
     if current_day_file == None or current_day != current_day_file:
@@ -167,7 +170,7 @@ def upload_completed(config):
         # one of those uplaods fails.
         if upload_file(current_day_file, config):
             # print("uploaded file worked, updating metadata to {}".format(current_day))
-            metadata['last_uploaded'] = datetime.strftime(datetime.now(), TIME_FORMAT)
+            metadata['last_uploaded'] = datetime.strftime(datetime.utcnow(), TIME_FORMAT)
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
         else:
@@ -189,7 +192,7 @@ def tick_completed(config):
         ready = True
     else:
         last_updated_time = datetime.strptime(last_updated, TIME_FORMAT)    
-        diff = datetime.now() - last_updated_time
+        diff = datetime.utcnow() - last_updated_time
         if diff.total_seconds() > interval:
             ready = True
 
@@ -201,8 +204,8 @@ def tick_completed(config):
     # for now, I'm going to have a USABLE time which is the 5 minute (or 30 minute) interval before this one
     # ... which I think I shouldn't get a duplicate for (and is OK anyway, as it's keyed)
 
-    usable_time = round_time(datetime.now(), interval)
-    # print('converted {} to usable time {}'.format(datetime.now(), usable_time))
+    usable_time = round_time(datetime.utcnow(), interval)
+    # print('converted {} to usable time {}'.format(datetime.utcnow(), usable_time))
 
     save_reading_for_time(usable_time, config, metadata)
 
@@ -227,7 +230,7 @@ def heartbeat(config):
     heartbeat_data = {
         'serial': serial,
         'ip': ip,
-        'timestamp': datetime.strftime(datetime.now(), TIME_FORMAT)
+        'timestamp': datetime.strftime(datetime.utcnow(), TIME_FORMAT)
     }
     url = config['tempest_url']
     response = requests.post(url + 'heartbeat', json=heartbeat_data)
@@ -260,13 +263,13 @@ def tick(config):
 
     return {
         'status': status,
-        'now': datetime.strftime(datetime.now(), TIME_FORMAT)
+        'now': datetime.strftime(datetime.utcnow(), TIME_FORMAT)
     }
 
 
 def get_day(day):
     # another 5MS hack - today is actually yesterday
-    day = day if day is not None else datetime.strftime(datetime.now() + timedelta(days=1), DAY_FORMAT)
+    day = day if day is not None else datetime.strftime(datetime.utcnow() + timedelta(days=1), DAY_FORMAT)
     return get_day_data(day)
     
 

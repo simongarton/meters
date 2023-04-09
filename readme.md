@@ -24,7 +24,8 @@ After a rainy Saturday of development, and a little bit of tweaking for the Pico
 
 ![InfluxDB](images/influx_db.png)
 
-Very early results. I need to work on the smoothing algorithm
+Three devices running. Note how one dropped off line for a day; I am finding that the Picos crash frequently, but haven't got
+any diagnostics.
 
 ### Raspberry Pi 3B
 
@@ -33,6 +34,35 @@ Very early results. I need to work on the smoothing algorithm
 ### Raspberry Pico W
 
 ![Pico (pico)](images/picos.jpg)
+
+## Findings
+
+- cute idea, works OK
+- working with the Picos and MicroPython is tricky, and code needed to be rewritten.
+- Picos seem to hang regularly.
+- InfluxDB has a lovely interface; some gotchas about refreshing screens and time zones.
+
+Timezones gave me some trouble. I started working with local time and Python's `datetime` - but the dates I used were not
+timezone aware. Loading them into InfluxDB didn't seem to work - no error, just nothing showed up - and I think it was because
+I did some 'unusual' conversion to make them timezone aware, which set the hour and minute to be appropriate for NZ, but the timezone was in UTC - which means the actual time is in the future, which doesn't display by default :facepalm.
+
+
+I'm currently running the devices as though they were in UTC; so I have to make sure to display the data in UTC, otherwise the daily
+patterns appear overnight.
+
+
+### To do
+
+- introduce exceptions (very high readings), and missing data - either failure to upload an entire day, or individual missing readings.
+- `kili` - which is on the full Pi 3B running the full code - is getting it's filenames different. it's 12pm NZ, and it's just started writing to `2023-04-10.json`; the others don't but I think that's correct. Oh wait, `nori` just caught up (12:12pm !cd )
+- the snapshots are not rounded to 3 decimals
+- there's a minor rounding/formatting issue with the hourly readings
+
+```
+            "2023-04-07T11:50:00Z": 0.511,
+            "2023-04-07T18:45:00Z": 0.9309999,
+            "2023-04-07T18:40:00Z": 1.014,
+```            
 
 ## Getting Started
 
@@ -45,7 +75,7 @@ and then a [Flask](https://flask.palletsprojects.com/en/2.2.x/) based agent to h
 - Copy the files : `__init__.py`, `agent.py`, `config.json`, `meter.py`, `meter.sh`, `run.sh`
 - Copy the `app` directory :` __init__.py` and `routes.py`
 
-And then create the cron jobs.
+And then create the cron jobs. `pytz` is needed as an import.
 
 ```
 */1 * * * * sudo /home/pi/agent/meter.sh
@@ -99,7 +129,7 @@ This acts as the head end, plus the asset management system.
 ![Meter](images/meter.png)
 
 
-### Meter
+### Meter (full version)
 
 Several things run on the Pi.
 
@@ -107,7 +137,21 @@ Several things run on the Pi.
 announcement call to Tempest to say it is on line. I am considering a heartbeat as well.
 - a CRON job runs every 5 minutes, on the 5 minute, to invoke `meter.py`
 - `meter.py` is invoked every 5 minutes and makes decisions, based on it's config, which is stored in `config.json`
+- each cycle it adds a reading, and uploads the current file
+- when the working day has changed, it starts writing to a new file.
+
+### Meter (Pico, Micropython)
+
+Several things run on the Pi.
+
+- a single script `main.py` is invoked on startup, and reads it's config, which is stored in `config.json`
+- it then loops around, pausing for 5 minutes, and then does the necessary logic.
+- each cycle it adds a reading, and uploads the current file
+- when the working day has changed, it starts writing to a new file.
 
 ## Config
 
 See the `config.json` files in this repo.
+
+
+The `profile` is used to give target readings for each hour; which are then varied by `variability` and also a per-channel factor.
