@@ -153,5 +153,36 @@ Several things run on the Pi.
 
 See the `config.json` files in this repo.
 
+The following keys are used:
+
+```
+    "interval_min": 5,
+    "serial": "mac",
+    "tempest_url": "http://192.168.86.34:8002/",
+    "profile": {
+        "0": 1,
+        "1": 2,
+        "2": 1,
+        ...
+    },
+    "variability": 0.1,
+     "channels": {
+        "Total": 1.0,
+        "House": 0.8
+     }
+```
+
+- `interval_min` : self-explanatory, normally 5 or 30 as a number
+- `serial` : self-explanatory, serial number as a string.
+- `tempest_url` : where is the Tempest head-end to be found
+- `profile` : a map, keys are strings 0->23 of base values to use as a profile for the captured data
+- `variability` : a float, a measure of how much the readings will differ from the profile. 0.1 is 10% and is a good start
+- `channels` : a map of channel names and multipliers
+
+
+- `display` : `oled-1.3`, `lcd-1.14` or `null` for my supported displays
+- `demo` : `true`, `false` or `null` : if `true,` this is a normal pico with no network so no uploads etc
+- `model` : `pico` or `pico-w` (different pins)
+
 
 The `profile` is used to give target readings for each hour; which are then varied by `variability` and also a per-channel factor.

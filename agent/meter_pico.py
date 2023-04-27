@@ -6,7 +6,9 @@ import network
 import secrets
 import ntptime
 import os
-from machine import Pin, Timer
+from machine import Pin
+
+from pico_oled_1_3_driver import OLED_1inch3
 
 #
 # meter_pico.py
@@ -25,12 +27,7 @@ from machine import Pin, Timer
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
-
-# for a regular Pico
-#led = Pin(25, Pin.OUT)
-# for a Pico W
-led = machine.Pin("LED", machine.Pin.OUT)
-
+APP_TITLE = "picoMeter 0.1"
 
 def round_time(dt=None, roundTo=60):
     # pass in the struct
@@ -298,6 +295,8 @@ def connect():
 
 
 def heartbeat(config):
+    if demo_mode(config):
+        return
     connect()
     serial = config['serial'] if 'serial' in config else 'no-serial-number'
     ip = config['ip'] if 'ip' in config else 'no-ip'
@@ -365,7 +364,10 @@ def redial(from_day, config):
 def load_config():
     with open('config.json', 'r') as config_file:
         data = json.load(config_file)
-    data['ip'] = get_ip()
+    try:
+        data['ip'] = get_ip()
+    except:
+        data['ip'] = '0.0.0.0'
     return data
 
 
@@ -373,12 +375,13 @@ def get_ip():
     wlan = network.WLAN(network.STA_IF)
     return wlan.ifconfig()[2]
 
-def wait_until_time_set():
+def wait_until_time_set(config):
     # have at least 2 flash sequence to show setting time
-    led.on()
+    led_on()
     time.sleep(0.5)
-    led.off()
+    led_off()
     time.sleep(0.5)
+    count = 0
     while True:
         try:
             led.on()
@@ -389,12 +392,35 @@ def wait_until_time_set():
             return True
         except:    
             print('could not set time')
+        count = count + 1
+        if count > 10:
+            return False
 
+
+def demo_mode(config):
+    if not 'demo' in config:
+        return False
+    return config['demo']
+
+def find_onboard_led(config):
+    # for a regular Pico
+    led = Pin(25, Pin.OUT)
+    if not 'model' in config:
+        return led
+    if config['model'] == 'pico-w':
+        # for a Pico W
+        led = machine.Pin("LED", machine.Pin.OUT)
+    return led
 
 def cold_tick_loop():
     config = load_config()
-    connect()
-    time_set = wait_until_time_set()
+    led = find_onboard_led(config)
+
+    display_single_message("setting up ...")
+
+    if not demo_mode(config):
+        connect()
+        time_set = wait_until_time_set(config)
 
     now = time.localtime()
     print('time now is {}, waiting for whole minute'.format(now))
@@ -435,6 +461,8 @@ def cold_tick_loop():
     
 def force_upload():
     config = load_config()
+    if demo_mode(config):
+        return
     connect()
     status = ''
 
@@ -446,6 +474,9 @@ def force_upload():
 
 
 def blink_five_times_to_start():
+    config = load_config()
+    led = find_onboard_led(config)
+
     for i in range(5):
         led.on()
         time.sleep(0.1)
@@ -454,12 +485,73 @@ def blink_five_times_to_start():
     time.sleep(1)
 
 
+def splash_screen_oled_1_3():
+    OLED = OLED_1inch3()
+    OLED.fill(0x0000) 
+    OLED.show()
+    OLED.rect(0,0,128,64,OLED.white)
+    time.sleep(0.1)
+    OLED.show()
+    OLED.rect(10,22,20,20,OLED.white)
+    time.sleep(0.1)
+    OLED.show()
+    OLED.fill_rect(40,22,20,20,OLED.white)
+    time.sleep(0.1)
+    OLED.show()
+    OLED.rect(70,22,20,20,OLED.white)
+    time.sleep(0.1)
+    OLED.show()
+    OLED.fill_rect(100,22,20,20,OLED.white)
+    time.sleep(0.1)
+    OLED.show()
+    time.sleep(1)
+    OLED.fill(0x0000) 
+    OLED.text(APP_TITLE,10,27,OLED.white)
+    OLED.show()
+    time.sleep(3)
+    OLED.fill(0xffff) 
+    OLED.show()
+    time.sleep(0.2)
+    OLED.fill(0x0000) 
+    OLED.show()
+
+
+def display_single_message_oled_1_3(message):
+    # each time ? global ?
+    OLED = OLED_1inch3()
+    OLED.fill(0x0000) 
+    OLED.text(message,5,27,OLED.white)
+    OLED.show()
+
+
+def splash_screen_lcd_1_14():
+    pass
+
+
+def display_single_message(message):
+    config = load_config()
+    if not 'display' in config:
+        return
+    if config['display'] == 'oled-1.3':
+        display_single_message_oled_1_3(message)
+
+def splash_screen():
+    config = load_config()
+    if not 'display' in config:
+        return
+    if config['display'] == 'oled-1.3':
+        splash_screen_oled_1_3()
+    if config['display'] == 'lcd-1.14':
+        splash_screen_lcd_1_14()
+
+
 if __name__ == '__main__':
     try:
         os.mkdir('data')
     except:
         pass
-
+    
     blink_five_times_to_start()
+    splash_screen()
     #force_upload()
     cold_tick_loop()
