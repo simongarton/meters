@@ -8,7 +8,8 @@ import ntptime
 import os
 from machine import Pin
 
-from pico_oled_1_3_driver import OLED_1inch3
+# fake libs for these ?
+import meter_pico_display
 
 #
 # meter_pico.py
@@ -37,9 +38,14 @@ def round_time(dt=None, roundTo=60):
     return time.localtime(seconds - remainder)
 
 
+# TODO not really UTC ?
 def strftime_time_utc(struct_time):
     # assume I'm using '%Y-%m-%d %H:%M:%S'
     return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}Z".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+
+
+def strftime_time(struct_time):
+    return "{:02.0f}:{:02.0f}:{:02.0f}".format(struct_time[3], struct_time[4], struct_time[5], )
 
 
 def strftime_day(struct_time):
@@ -194,13 +200,16 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
 
     day = create_or_get_day(reading_day, empty_day)
 
+    readings = []
     for channel_name, channel_factor in channel_data.items():
         reading = generate_reading(usable_time, config, channel_factor)
+        readings.append((channel_name, reading))
         interval_key = strftime_time_utc(usable_time)
         day['datastreams'][channel_name][interval_key] = reading
         updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
-    return updated_snapshot_block
+    print(readings)
+    return updated_snapshot_block, readings
 
 
 def create_or_load_metadata():
@@ -249,12 +258,12 @@ def upload_completed(config):
     return False
 
 
-def tick_completed(config):
+def tick_completed(config, force):
     metadata = create_or_load_metadata()    
     last_updated = metadata['last_updated']
     interval = config['interval_min'] * 60
 
-    ready = False
+    ready = force
     if last_updated == None:
         ready = True
     else:
@@ -264,7 +273,7 @@ def tick_completed(config):
             ready = True
 
     if not ready:
-        return False
+        return False, []
     
     # there is a bit of a gotcha here. I need to record the 5 minute interval (or 30 etc) for this
     # which can only happen every 5 minutes. but I may have gone past this time.
@@ -277,13 +286,13 @@ def tick_completed(config):
     snapshot_block = create_or_get_snapshot_block(config, metadata)
 
     serial = config['serial'] if 'serial' in config else 'no-serial-number'
-    updated_snapshot_block = create_or_update_readings(usable_time, serial, config, snapshot_block)
+    updated_snapshot_block, readings = create_or_update_readings(usable_time, serial, config, snapshot_block)
 
     metadata['snapshots'] = updated_snapshot_block
     metadata['last_updated'] = strftime_time_utc(usable_time)
 
     save_metadata(metadata)
-    return True
+    return True, readings
 
 
 def connect():
@@ -309,10 +318,11 @@ def heartbeat(config):
     response = urequests.post(url + 'heartbeat', json=heartbeat_data)
 
 
-def tick(config):
+def tick(config, force):
     status = ''
     # run a tick (if ready) to store some more 5min data
-    if tick_completed(config) == False:
+    outcome, readings = tick_completed(config, force)
+    if outcome == False:
         status = status + 'not ready to tick. '
     else:
         # upload the current file anyway
@@ -339,7 +349,9 @@ def tick(config):
 
     return {
         'status': status,
-        'now': strftime_time_utc(time.localtime())
+        'now': strftime_time_utc(time.localtime()),
+        'readings': readings,
+        'updated': outcome
     }
 
 
@@ -375,11 +387,15 @@ def get_ip():
     wlan = network.WLAN(network.STA_IF)
     return wlan.ifconfig()[2]
 
+
 def wait_until_time_set(config):
     # have at least 2 flash sequence to show setting time
-    led_on()
+    config = load_config()
+    led = find_onboard_led(config)
+
+    led.on()
     time.sleep(0.5)
-    led_off()
+    led.off()
     time.sleep(0.5)
     count = 0
     while True:
@@ -402,6 +418,7 @@ def demo_mode(config):
         return False
     return config['demo']
 
+
 def find_onboard_led(config):
     # for a regular Pico
     led = Pin(25, Pin.OUT)
@@ -412,11 +429,13 @@ def find_onboard_led(config):
         led = machine.Pin("LED", machine.Pin.OUT)
     return led
 
+
 def cold_tick_loop():
     config = load_config()
     led = find_onboard_led(config)
+    interval = config['interval_min']
 
-    display_single_message("setting up ...")
+    meter_pico_display.display_single_message("setting up ...")
 
     if not demo_mode(config):
         connect()
@@ -429,23 +448,29 @@ def cold_tick_loop():
         now = time.localtime()
         if now[5] % 60 == 0:
             break
+        meter_pico_display.display_single_message("waiting ({})".format(now[5]))
         led.on() # brief flash every second to show waiting
         time.sleep(0.1)
         led.off()
         time.sleep(0.9)
         
+    meter_pico_display.display_single_message("starting ...")
     print('time now is {}, starting to tick'.format(now))
+    display_readings = []
     while True:
         elapsed = time.time()    
         now = time.localtime()            
         print('time now is {}, doing a tick'.format(now))
         led.on() # 1 second pulse to show uploading
-        tick(config)
+        tick_details = tick(config, len(display_readings) == 0)
         time.sleep(1)
         led.off()
         time.sleep(1)
         now = time.localtime()            
         print('time now is {}, waiting for next minute'.format(now))
+        if tick_details['updated']:
+            display_readings = tick_details['readings']
+        meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
         while True:
             led.on() # brief flash every 5 seconds to show alive
             time.sleep(0.1)
@@ -457,7 +482,6 @@ def cold_tick_loop():
             if time.time() - elapsed >= 60: # safety
                 break
             
-
     
 def force_upload():
     config = load_config()
@@ -485,66 +509,6 @@ def blink_five_times_to_start():
     time.sleep(1)
 
 
-def splash_screen_oled_1_3():
-    OLED = OLED_1inch3()
-    OLED.fill(0x0000) 
-    OLED.show()
-    OLED.rect(0,0,128,64,OLED.white)
-    time.sleep(0.1)
-    OLED.show()
-    OLED.rect(10,22,20,20,OLED.white)
-    time.sleep(0.1)
-    OLED.show()
-    OLED.fill_rect(40,22,20,20,OLED.white)
-    time.sleep(0.1)
-    OLED.show()
-    OLED.rect(70,22,20,20,OLED.white)
-    time.sleep(0.1)
-    OLED.show()
-    OLED.fill_rect(100,22,20,20,OLED.white)
-    time.sleep(0.1)
-    OLED.show()
-    time.sleep(1)
-    OLED.fill(0x0000) 
-    OLED.text(APP_TITLE,10,27,OLED.white)
-    OLED.show()
-    time.sleep(3)
-    OLED.fill(0xffff) 
-    OLED.show()
-    time.sleep(0.2)
-    OLED.fill(0x0000) 
-    OLED.show()
-
-
-def display_single_message_oled_1_3(message):
-    # each time ? global ?
-    OLED = OLED_1inch3()
-    OLED.fill(0x0000) 
-    OLED.text(message,5,27,OLED.white)
-    OLED.show()
-
-
-def splash_screen_lcd_1_14():
-    pass
-
-
-def display_single_message(message):
-    config = load_config()
-    if not 'display' in config:
-        return
-    if config['display'] == 'oled-1.3':
-        display_single_message_oled_1_3(message)
-
-def splash_screen():
-    config = load_config()
-    if not 'display' in config:
-        return
-    if config['display'] == 'oled-1.3':
-        splash_screen_oled_1_3()
-    if config['display'] == 'lcd-1.14':
-        splash_screen_lcd_1_14()
-
-
 if __name__ == '__main__':
     try:
         os.mkdir('data')
@@ -552,6 +516,6 @@ if __name__ == '__main__':
         pass
     
     blink_five_times_to_start()
-    splash_screen()
+    meter_pico_display.splash_screen(APP_TITLE)
     #force_upload()
     cold_tick_loop()
