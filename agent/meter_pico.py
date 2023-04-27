@@ -6,6 +6,7 @@ import network
 import secrets
 import ntptime
 import os
+from machine import Pin, Timer
 
 #
 # meter_pico.py
@@ -24,6 +25,11 @@ import os
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
+
+# for a regular Pico
+#led = Pin(25, Pin.OUT)
+# for a Pico W
+led = machine.Pin("LED", machine.Pin.OUT)
 
 
 def round_time(dt=None, roundTo=60):
@@ -329,8 +335,8 @@ def tick(config):
 
     try:
         heartbeat(config)
-    except:
-        print('no heartbeat')
+    except Exception as e:
+        print('no heartbeat : {}'.format(str(e)))
 
     return {
         'status': status,
@@ -367,16 +373,28 @@ def get_ip():
     wlan = network.WLAN(network.STA_IF)
     return wlan.ifconfig()[2]
 
+def wait_until_time_set():
+    # have at least 2 flash sequence to show setting time
+    led.on()
+    time.sleep(0.5)
+    led.off()
+    time.sleep(0.5)
+    while True:
+        try:
+            led.on()
+            time.sleep(0.5)
+            led.off()
+            time.sleep(0.5)
+            ntptime.settime()
+            return True
+        except:    
+            print('could not set time')
+
 
 def cold_tick_loop():
     config = load_config()
     connect()
-    time_set = False
-    try:
-        ntptime.settime()
-        time_set = True
-    except:    
-        print('could not set time')
+    time_set = wait_until_time_set()
 
     now = time.localtime()
     print('time now is {}, waiting for whole minute'.format(now))
@@ -385,23 +403,34 @@ def cold_tick_loop():
         now = time.localtime()
         if now[5] % 60 == 0:
             break
-        time.sleep(1)
+        led.on() # brief flash every second to show waiting
+        time.sleep(0.1)
+        led.off()
+        time.sleep(0.9)
         
-    now = time.localtime()            
     print('time now is {}, starting to tick'.format(now))
     while True:
-        if not time_set:
-            try:
-                ntptime.settime()
-                time_set = True
-            except:    
-                print('could not set time')
+        elapsed = time.time()    
         now = time.localtime()            
         print('time now is {}, doing a tick'.format(now))
+        led.on() # 1 second pulse to show uploading
         tick(config)
+        time.sleep(1)
+        led.off()
+        time.sleep(1)
         now = time.localtime()            
         print('time now is {}, waiting for next minute'.format(now))
-        time.sleep(60)  
+        while True:
+            led.on() # brief flash every 5 seconds to show alive
+            time.sleep(0.1)
+            led.off()
+            time.sleep(4.9)
+            now = time.localtime()
+            if now[5] % 60 == 0: # on the minute
+                break
+            if time.time() - elapsed >= 60: # safety
+                break
+            
 
     
 def force_upload():
@@ -416,13 +445,21 @@ def force_upload():
     print(status)    
 
 
+def blink_five_times_to_start():
+    for i in range(5):
+        led.on()
+        time.sleep(0.1)
+        led.off()
+        time.sleep(0.1)
+    time.sleep(1)
+
+
 if __name__ == '__main__':
     try:
         os.mkdir('data')
     except:
         pass
 
+    blink_five_times_to_start()
     #force_upload()
     cold_tick_loop()
-
-
