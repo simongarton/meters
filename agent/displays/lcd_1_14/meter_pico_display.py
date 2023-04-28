@@ -41,11 +41,11 @@ def lcd_color(red, green, blue):
     # 2^6 = 64
     # 32 * 64 = 2048
 
-    r1 = red >> 3
-    g1 = green >> 3
-    b1 = blue >> 3
-    # math is funky, I am sure I can simplify this ! divs and multiplies    
-    rgb565 = ((r1 // 4) * 32) + (g1 // 4) + ((b1 // 4) * 1024)
+    r1 = red >> 5
+    g1 = green >> 5
+    b1 = blue >> 5
+    # this seems to work - the gradients are right - but doesn't really mach up the 565 I was expecting
+    rgb565 = r1 * 32 + g1 + b1 * 1024
     # print('{},{},{} -> {},{},{} = {}'.format(
     #     red,
     #     green,
