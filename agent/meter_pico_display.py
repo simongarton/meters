@@ -1,7 +1,8 @@
 import time
 import json
 
-# this is shell version, with the right methods but no specific display
+# this is a stub version, with the right methods but no specific display. if you look in the displays/folder, you can see other versions - with their appropriate
+# drive files - of this file to support specific displays. displays from WaveShare.
 
 # light version, no IP
 def load_config():

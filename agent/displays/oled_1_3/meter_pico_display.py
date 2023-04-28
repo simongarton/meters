@@ -1,7 +1,7 @@
 import time
 import json
 
-# OLED_1inch3 128 x 64
+# OLED_1inch3 128 x 64, monocolor
 
 from pico_old_1_3_driver import OLED_1inch3
 

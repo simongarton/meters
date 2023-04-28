@@ -29,11 +29,29 @@ any diagnostics.
 
 ### Raspberry Pi 3B
 
+Used as a headend to collect data from the meters; can also collect data itself.
+
 ![Pi 3B (kili)](images/kili.jpg)
 
 ### Raspberry Pico W
 
-![Pico (pico)](images/picos.jpg)
+Two minimal meters, generating typical data.
+
+![Pico](images/picos.jpg)
+
+### OLED display
+
+Extending the functionality - just for fun - put a little OLED display onto the Pico to see what it's up to. Monocolor, but
+bright; 128 x 64 resolution.
+
+![OLED](images/oled-values.jpg)
+
+### LCD display
+
+Extending the functionality - just for fun - put a little LCD display onto the Pico to see what it's up to. 16 bit color, 240 x 135 resolution.
+
+![LCD](images/lcd-chart-all.jpg)
+
 
 ## Findings
 
@@ -54,7 +72,6 @@ patterns appear overnight.
 ### To do
 
 - introduce exceptions (very high readings), and missing data - either failure to upload an entire day, or individual missing readings.
-- `kili` - which is on the full Pi 3B running the full code - is getting it's filenames different. it's 12pm NZ, and it's just started writing to `2023-04-10.json`; the others don't but I think that's correct. Oh wait, `nori` just caught up (12:12pm !cd )
 - the snapshots are not rounded to 3 decimals
 - there's a minor rounding/formatting issue with the hourly readings
 
@@ -63,6 +80,8 @@ patterns appear overnight.
             "2023-04-07T18:45:00Z": 0.9309999,
             "2023-04-07T18:40:00Z": 1.014,
 ```            
+
+- support redials
 
 ## Getting Started
 

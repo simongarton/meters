@@ -2,12 +2,15 @@ from machine import Pin,SPI
 import framebuf
 import time
 
+# WaveShare demo code
+#
+# https://www.waveshare.com/wiki/Pico-OLED-1.3
+
 DC = 8
 RST = 12
 MOSI = 11
 SCK = 10
 CS = 9
-
 
 class OLED_1inch3(framebuf.FrameBuffer):
     def __init__(self):
@@ -45,14 +48,14 @@ class OLED_1inch3(framebuf.FrameBuffer):
         self.cs(1)
 
     def init_display(self):
-        """Initialize dispaly"""  
+        """Initialize display"""  
         self.rst(1)
         time.sleep(0.001)
         self.rst(0)
         time.sleep(0.01)
         self.rst(1)
         
-        self.write_cmd(0xAE)#turn off OLED display
+        self.write_cmd(0xAE)   #turn off OLED display
 
         self.write_cmd(0x00)   #set lower column address
         self.write_cmd(0x10)   #set higher column address 
@@ -67,7 +70,7 @@ class OLED_1inch3(framebuf.FrameBuffer):
     
         self.write_cmd(0xa0)    #set segment remap 
         self.write_cmd(0xc0)    #Com scan direction
-        self.write_cmd(0xa4)   #Disable Entire Display On (0xA4/0xA5) 
+        self.write_cmd(0xa4)    #Disable Entire Display On (0xA4/0xA5) 
 
         self.write_cmd(0xa6)    #normal / reverse
         self.write_cmd(0xa8)    #multiplex ratio 
@@ -88,6 +91,7 @@ class OLED_1inch3(framebuf.FrameBuffer):
         self.write_cmd(0xad)    #set charge pump enable 
         self.write_cmd(0x8a)    #Set DC-DC enable (a=0:disable; a=1:enable)
         self.write_cmd(0XAF)
+        
     def show(self):
         self.write_cmd(0xb0)
         for page in range(0,64):

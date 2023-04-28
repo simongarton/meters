@@ -8,7 +8,8 @@ import ntptime
 import os
 from machine import Pin
 
-# fake libs for these ?
+# this is an empty class, with stub methods. if you look in the displays/folder, you can see other versions - with their appropriate
+# drive files - of this file to support specific displays. displays from WaveShare.
 import meter_pico_display
 
 #
@@ -31,16 +32,13 @@ DAY_FORMAT = '%Y-%m-%d'
 APP_TITLE = "picoMeter 0.1"
 
 def round_time(dt=None, roundTo=60):
-    # pass in the struct
     if dt == None : dt = time.localtime()
     seconds = time.mktime(dt)
     remainder = seconds % roundTo
     return time.localtime(seconds - remainder)
 
 
-# TODO not really UTC ?
 def strftime_time_utc(struct_time):
-    # assume I'm using '%Y-%m-%d %H:%M:%S'
     return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}Z".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
 
 
@@ -49,7 +47,6 @@ def strftime_time(struct_time):
 
 
 def strftime_day(struct_time):
-    # assume I'm using '%Y-%m-%d'
     return "{:04.0f}-{:02.0f}-{:02.0f}".format(struct_time[0], struct_time[1], struct_time[2])
 
 
