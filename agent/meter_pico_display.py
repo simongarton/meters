@@ -98,19 +98,19 @@ def display_single_message_oled_1_3(message):
 
 # last value
 
-def display_last_values(time, readings, interval):
+def display_last_values(timestamp, readings, interval):
     config = load_config()
     if not 'display' in config:
         return
     if config['display'] == 'oled-1.3':
-        display_last_values(time, readings, interval)
+        display_last_values(timestamp, readings, interval)
 
 
-def display_last_values(time, readings, interval):
-    # each time ? global ?
+def display_last_values(timestamp, readings, interval):
+    # each timestamp ? global ?
     OLED = OLED_1inch3()
     OLED.fill(0x0000) 
-    OLED.text(time,60,5,OLED.white)
+    OLED.text(timestamp,60,5,OLED.white)
     index = 0
     if len(readings) == 0:
         OLED.text('no readings yet',5,25,OLED.white)
@@ -121,16 +121,16 @@ def display_last_values(time, readings, interval):
 
 # bar chart
 
-def display_bar_chart(time, readings, interval):
+def display_bar_chart(timestamp, readings, interval):
     config = load_config()
     if not 'display' in config:
         return
     if config['display'] == 'oled-1.3':
-        display_bar_chart(time, readings, interval)
+        display_bar_chart(timestamp, readings, interval)
 
 
-def display_bar_chart(time, readings, interval):
-    # each time ? global ?
+def display_bar_chart(timestamp, readings, interval):
+    # each timestamp ? global ?
     OLED = OLED_1inch3()
     OLED.fill(0x0000) 
 
@@ -163,16 +163,16 @@ def display_bar_chart(time, readings, interval):
 
 # line chart
 
-def display_line_chart(time, readings, interval):
+def display_line_chart(timestamp, readings, interval):
     config = load_config()
     if not 'display' in config:
         return
     if config['display'] == 'oled-1.3':
-        display_line_chart(time, readings, interval)
+        display_line_chart(timestamp, readings, interval)
 
 
-def display_line_chart(time, readings, interval):
-    # each time ? global ?
+def display_line_chart(timestamp, readings, interval):
+    # each timestamp ? global ?
     OLED = OLED_1inch3()
     OLED.fill(0x0000) 
 
@@ -192,24 +192,48 @@ def display_line_chart(time, readings, interval):
     for (channel_name, value) in readings:
         reading_list = load_readings(channel_name)
         x = 0
+        OLED.fill(0x0000) 
+        OLED.text('{}'.format(channel_name),5,5,OLED.white)
+        last_x1 = None
+        last_y1 = None
         for reading in reading_list:
             x1 = int(x * 128 / 288)
-            y1 = int(reading * scale)
-            OLED.pixel(x1, 64 - y1, OLED.white)
+            y1 = 64 - int(reading * scale)
+            if last_x1 != None:
+                OLED.line(last_x1, last_y1, x1, y1, OLED.white)
+            last_x1 = x1
+            last_y1 = y1
+            x = x + 1
+        OLED.show()
+        time.sleep(1)
+
+    OLED.fill(0x0000) 
+    for (channel_name, value) in readings:
+        reading_list = load_readings(channel_name)
+        x = 0
+        last_x1 = None
+        last_y1 = None
+        for reading in reading_list:
+            x1 = int(x * 128 / 288)
+            y1 = 64 - int(reading * scale)
+            if last_x1 != None:
+                OLED.line(last_x1, last_y1, x1, y1, OLED.white)
+            last_x1 = x1
+            last_y1 = y1
             x = x + 1
     OLED.show()
 
 # totals
 
-def display_total_chart(time, readings, interval):
+def display_total_chart(timestamp, readings, interval):
     config = load_config()
     if not 'display' in config:
         return
     if config['display'] == 'oled-1.3':
-        display_total_chart(time, readings, interval)
+        display_total_chart(timestamp, readings, interval)
 
 
-def display_total_chart(time, readings, interval):
+def display_total_chart(timestamp, readings, interval):
     # each time ? global ?
     OLED = OLED_1inch3()
     OLED.fill(0x0000) 

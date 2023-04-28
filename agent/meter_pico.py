@@ -527,16 +527,9 @@ def cold_tick_loop():
         print('time now is {}, waiting for next minute'.format(now))
         if tick_details['updated']:
             display_readings = tick_details['readings']
-        if iteration % 4 == 0:
-            meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
-        if iteration % 4 == 1:
-            meter_pico_display.display_line_chart(strftime_time(now), display_readings, interval)
-        if iteration % 4 == 2:
-            meter_pico_display.display_bar_chart(strftime_time(now), display_readings, interval)
-        if iteration % 4 == 3:
-            meter_pico_display.display_total_chart(strftime_time(now), display_readings, interval)
-        iteration = iteration + 1
         while True:
+            now = time.localtime()
+            iteration = display_something(iteration, now, display_readings, interval)
             led.on() # brief flash every 5 seconds to show alive
             time.sleep(0.1)
             led.off()
@@ -546,7 +539,18 @@ def cold_tick_loop():
                 break
             if time.time() - elapsed >= 60: # safety
                 break
-            
+
+def display_something(iteration, now, display_readings, interval):           
+    if iteration % 4 == 0:
+        meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
+    if iteration % 4 == 1:
+        meter_pico_display.display_line_chart(strftime_time(now), display_readings, interval)
+    if iteration % 4 == 2:
+        meter_pico_display.display_bar_chart(strftime_time(now), display_readings, interval)
+    if iteration % 4 == 3:
+        meter_pico_display.display_total_chart(strftime_time(now), display_readings, interval)
+    iteration = iteration + 1
+    return iteration
     
 def force_upload():
     config = load_config()
