@@ -2,7 +2,7 @@ import time
 import json
 import random
 
-# LCD_1inch14 240 x 135 and 2 byte color
+# LCD_1inch14 240 x 135 and 16 bit color
 
 from pico_lcd_1_14_driver import LCD_1inch14
 
@@ -42,12 +42,10 @@ def lcd_color(red, green, blue):
     # 32 * 64 = 2048
 
     r1 = red >> 3
-    g1 = green >> 2
+    g1 = green >> 3
     b1 = blue >> 3
-
-    # this looks sane, but red and green are swapped
-    # rgb565 = r1 + (g1 * 32) + (b1 * 2048)
-    rgb565 = g1 + (r1 * 32) + (b1 * 2048)
+    # math is funky, I am sure I can simplify this ! divs and multiplies    
+    rgb565 = ((r1 // 4) * 32) + (g1 // 4) + ((b1 // 4) * 1024)
     # print('{},{},{} -> {},{},{} = {}'.format(
     #     red,
     #     green,
@@ -76,28 +74,30 @@ def lcd_color_index(index):
 
 # splash screen
 
-
 def gradient():
-    for x in range(0, 288):
-        fraction = (x + 1) / 288
+    for x in range(0, 240):
+        fraction = (x + 1) / 240
         color_fraction = int(255 * fraction)
-        r = 0
-        g = 0 # 255 - color_fraction
+        g = 0
+        r = 255 - color_fraction
         b = color_fraction
-        print("{}:{},{},{}".format(x, r, g, b))
-        display.line(x, 135, x, 0, lcd_color(r,g,b))
+        color = lcd_color(r,g,b)
+        # print("{}:{},{},{} -> {}".format(x, r, g, b, color))
+        display.line(x, 0, x, 135, color)
+        # display.fill_rect(0, 0, 240, 135, color)
+        # display.show()
     display.show()
-    time.sleep(5)
+    time.sleep(1000)
 
 def splash_screen(title):
     global display
     display.fill(0x0000) 
     display.show()
     display.rect(0,0,240,135,display.white)
+    display.show()
     wait = 0.01
     time.sleep(wait)
-    gradient()
-    display.show()
+    # gradient()
     display.fill_rect(20,25,20,20,lcd_color(255,0,0))
     time.sleep(wait)
     display.show()
@@ -130,9 +130,6 @@ def splash_screen(title):
     display.text(title,20,55,display.white)
     display.show()
     time.sleep(3)
-    display.fill(0xffff) 
-    display.show()
-    time.sleep(0.2)
     display.fill(0x0000) 
     display.show()
 
@@ -232,6 +229,7 @@ def display_line_chart(timestamp, readings, interval):
         index = index + 1
 
     display.fill(0x0000) 
+    display.text('{}'.format('All'),5,5,display.white)
     index = 0
     for (channel_name, value) in readings:
         reading_list = load_readings(channel_name)
@@ -254,6 +252,7 @@ def display_line_chart(timestamp, readings, interval):
 def display_total_chart(timestamp, readings, interval):
     global display
     display.fill(0x0000) 
+    display.text('{}'.format('All'),5,5,display.white)
 
     if len(readings) == 0:
         display.text('no readings yet',20,55,display.white)
@@ -283,7 +282,8 @@ def display_total_chart(timestamp, readings, interval):
         r = 0
         g = 255 - color_fraction
         b = color_fraction
-        print("{}:{},{},{}".format(x, r, g, b))
-        display.line(x1, 135, x1, 135 - y1, lcd_color(r,g,b))
+        # print("{}:{},{},{}".format(x, r, g, b))
+        # display.line(x1, 135, x1, 135 - y1, lcd_color(r,g,b))
+        display.line(x1, 135, x1, 135 - y1, lcd_color(127, 127, 127))
         x = x + 1
     display.show()
