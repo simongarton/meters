@@ -185,6 +185,24 @@ def build_datastream_block(channel_data):
     return datastream_block
 
 
+def save_chart_reading(channel_name, reading):
+    filename = 'charts/{}.csv'.format(channel_name)
+    if not file_exists(filename):
+        with open(filename, 'w') as output:
+            output.write(str(reading))
+        return
+    readings = []
+    with open(filename, 'r') as input:
+        new_readings = input.readlines()
+        for new_reading in new_readings:
+            readings.append(float(new_reading))
+    readings.append(reading)
+    short_list = readings if len(readings) < 288 else readings[-288:]
+    with open(filename, 'w') as output:
+            for item in short_list:
+                output.write('{}\n'.format(item))
+    
+
 def create_or_update_readings(usable_time, serial, config, snapshot_block):
     updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
@@ -203,12 +221,12 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     readings = []
     for channel_name, channel_factor in channel_data.items():
         reading = generate_reading(usable_time, config, channel_factor)
+        save_chart_reading(channel_name, reading)
         readings.append((channel_name, reading))
         interval_key = strftime_time_utc(usable_time)
         day['datastreams'][channel_name][interval_key] = reading
         updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
-    print(readings)
     return updated_snapshot_block, readings
 
 
@@ -430,6 +448,39 @@ def find_onboard_led(config):
     return led
 
 
+def generate_readings(config):
+    number_points = 288 # TODO fixed for 5 minutes, chart willl look bad with 30
+    seconds = time.time() - (24 * 60 * 60)
+    usable_time = time.localtime(seconds)
+    channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
+    for channel_name, channel_factor in channel_data.items():
+        filename = 'charts/{}.csv'.format(channel_name)
+        if file_exists(filename):
+            continue
+
+        readings = []
+        for interval in range(number_points):
+            reading = generate_reading(usable_time, config, channel_factor)
+            readings.append(reading)
+            seconds = seconds + (5 * 60)
+            usable_time = time.localtime(seconds)
+            
+        short_list = readings if len(readings) < 288 else readings[-288:]
+        with open(filename, 'w') as output:
+            for item in short_list:
+                output.write('{}\n'.format(item))
+
+
+def update_chart_readings(chart_readings, display_readings):
+    for (channel_name, value) in display_readings:
+        if not channel_name in chart_readings:
+            chart_readings[channel_name] = []
+        chart_readings[channel_name].append(value)
+        if len(chart_readings[channel_name]) > 288:
+            chart_readings[channel_name].pop(0)
+    return chart_readings
+
+
 def cold_tick_loop():
     config = load_config()
     led = find_onboard_led(config)
@@ -444,6 +495,9 @@ def cold_tick_loop():
     now = time.localtime()
     print('time now is {}, waiting for whole minute'.format(now))
 
+    if demo_mode(config):
+        generate_readings(config)
+
     while True:
         now = time.localtime()
         if now[5] % 60 == 0:
@@ -453,10 +507,13 @@ def cold_tick_loop():
         time.sleep(0.1)
         led.off()
         time.sleep(0.9)
+        # TODO 
+        break
         
     meter_pico_display.display_single_message("starting ...")
     print('time now is {}, starting to tick'.format(now))
     display_readings = []
+    iteration = 1
     while True:
         elapsed = time.time()    
         now = time.localtime()            
@@ -470,7 +527,13 @@ def cold_tick_loop():
         print('time now is {}, waiting for next minute'.format(now))
         if tick_details['updated']:
             display_readings = tick_details['readings']
-        meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
+            if iteration % 3 == 0:
+                meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
+            if iteration % 3 == 1:
+                meter_pico_display.display_line_chart(strftime_time(now), display_readings, interval)
+            if iteration % 3 == 2:
+                meter_pico_display.display_bar_chart(strftime_time(now), display_readings, interval)
+            iteration = iteration + 1
         while True:
             led.on() # brief flash every 5 seconds to show alive
             time.sleep(0.1)
@@ -514,7 +577,12 @@ if __name__ == '__main__':
         os.mkdir('data')
     except:
         pass
-    
+
+    try:
+        os.mkdir('charts')
+    except:
+        pass
+
     blink_five_times_to_start()
     meter_pico_display.splash_screen(APP_TITLE)
     #force_upload()
