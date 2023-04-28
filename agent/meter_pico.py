@@ -464,7 +464,7 @@ def generate_readings(config):
             readings.append(reading)
             seconds = seconds + (5 * 60)
             usable_time = time.localtime(seconds)
-            
+
         short_list = readings if len(readings) < 288 else readings[-288:]
         with open(filename, 'w') as output:
             for item in short_list:
@@ -513,7 +513,7 @@ def cold_tick_loop():
     meter_pico_display.display_single_message("starting ...")
     print('time now is {}, starting to tick'.format(now))
     display_readings = []
-    iteration = 1
+    iteration = 0
     while True:
         elapsed = time.time()    
         now = time.localtime()            
@@ -527,13 +527,15 @@ def cold_tick_loop():
         print('time now is {}, waiting for next minute'.format(now))
         if tick_details['updated']:
             display_readings = tick_details['readings']
-            if iteration % 3 == 0:
-                meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
-            if iteration % 3 == 1:
-                meter_pico_display.display_line_chart(strftime_time(now), display_readings, interval)
-            if iteration % 3 == 2:
-                meter_pico_display.display_bar_chart(strftime_time(now), display_readings, interval)
-            iteration = iteration + 1
+        if iteration % 4 == 0:
+            meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
+        if iteration % 4 == 1:
+            meter_pico_display.display_line_chart(strftime_time(now), display_readings, interval)
+        if iteration % 4 == 2:
+            meter_pico_display.display_bar_chart(strftime_time(now), display_readings, interval)
+        if iteration % 4 == 3:
+            meter_pico_display.display_total_chart(strftime_time(now), display_readings, interval)
+        iteration = iteration + 1
         while True:
             led.on() # brief flash every 5 seconds to show alive
             time.sleep(0.1)
