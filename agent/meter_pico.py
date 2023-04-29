@@ -1,17 +1,3 @@
-import time
-import json
-import random
-import urequests
-import network
-import secrets
-import ntptime
-import os
-from machine import Pin
-
-# this is an empty class, with stub methods. if you look in the displays/folder, you can see other versions - with their appropriate
-# drive files - of this file to support specific displays. displays from WaveShare.
-import meter_pico_display
-
 #
 # meter_pico.py
 #
@@ -27,9 +13,25 @@ import meter_pico_display
 # I have added strftime_time_utc() for when I write out to the file, to include a Z on the end - which I can then parse later
 # I have also updated the logic for checking last_uploaded, last_updated as I also parse that manually (and the Z is ignored.)
 
+import time
+import json
+import random
+import urequests
+import network
+import secrets
+import ntptime
+import os
+from machine import Pin
+
+# this is an empty class, with stub methods. if you look in the displays/folder, you can see other versions - with their appropriate
+# drive files - of this file to support specific displays. displays from WaveShare.
+import meter_pico_display
+
+
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
-APP_TITLE = "picoMeter 0.1"
+APP_TITLE = "picoMeter"
+VERSION = "0.1.1"
 
 def round_time(dt=None, roundTo=60):
     if dt == None : dt = time.localtime()
@@ -200,18 +202,28 @@ def save_chart_reading(channel_name, reading):
                 output.write('{}\n'.format(item))
     
 
+def build_metadata_block(config):
+    return {
+        'version': VERSION,
+        'config': config
+    }
+
+
 def create_or_update_readings(usable_time, serial, config, snapshot_block):
     updated_snapshot_block = snapshot_block.copy()
     reading_time =  map_timestamp_to_reading_day(usable_time)
     reading_day = strftime_day(reading_time)
     channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
     datastream_block = build_datastream_block(channel_data)
+    metadata_block = build_metadata_block(config)
     empty_day = {
         'serial': serial,
         'reading_day': reading_day,
         'snapshots': snapshot_block,
         'datastreams': datastream_block,
-    }
+        'metadata': metadata_block
+        }
+
 
     day = create_or_get_day(reading_day, empty_day)
 
@@ -483,17 +495,17 @@ def cold_tick_loop():
     led = find_onboard_led(config)
     interval = config['interval_min']
 
-    meter_pico_display.display_single_message("setting up ...")
+    meter_pico_display.display_single_message("hello, I'm {}".format(config['serial']))
 
     if not demo_mode(config):
         connect()
         time_set = wait_until_time_set(config)
 
-    now = time.localtime()
-    print('time now is {}, waiting for whole minute'.format(now))
-
     if demo_mode(config):
         generate_readings(config)
+
+    now = time.localtime()
+    print('time now is {}, waiting for whole minute'.format(now))
 
     while True:
         now = time.localtime()
@@ -587,6 +599,6 @@ if __name__ == '__main__':
         pass
 
     blink_five_times_to_start()
-    meter_pico_display.splash_screen(APP_TITLE)
+    meter_pico_display.splash_screen('{} {}'.format(APP_TITLE, VERSION))
     #force_upload()
     cold_tick_loop()

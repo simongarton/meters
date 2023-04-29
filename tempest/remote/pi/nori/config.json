@@ -1,7 +1,10 @@
 {
     "interval_min": 5,
-    "serial": "kili",
+    "serial": "nori",
     "tempest_url": "http://192.168.86.51:8002/",
+    "demo": false,
+    "display": null,
+    "model": "pico-w",
     "profile": {
       "0": 1,
       "1": 1,
