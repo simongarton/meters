@@ -1,12 +1,11 @@
 from flask import request, jsonify, render_template
 from tempest.app import app
 from tempest import tempest
-from datetime import datetime
-import json
 
 # routes.py
 #
-# the main routes code for the tempest server
+# the main routes code for the tempest server. basically handles the routes and 
+# delegates everything else to tempest.
 #
 
 @app.route('/')

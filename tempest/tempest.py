@@ -1,7 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 import socket
 import os
 import json
+import requests
+import secrets
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
@@ -132,7 +134,59 @@ def save_data(serial, date, data):
     return data
 
 
+def convert_to_pipeline_format(data):
+    # this is the ProcessingPayload format from the pipeline.
+    meter = {}
+    meter['serialNumber'] = data['serial']
+
+    unit_of_work = {}
+    unit_of_work['serialNumber'] = data['serial']
+    # TODO I need to do this properly
+    unit_of_work['payloadDate'] = '{}T00:00:00Z'.format(data['reading_day'])
+
+    datastreams = []
+    for name, reading_data in data['datastreams']:
+        datastream = {}
+        datastream['name'] = name
+        datastream['interval'] = 5 # TODO this should come from metadata but is missing.
+        
+        readings = []
+        for timestamp, value in reading_data.items():
+            readings.append({
+                'timestamp': timestamp,
+                'value': value
+            })
+        datastream['readings'] = readings
+        datastreams.append(datastream)
+
+    unit_of_work['dataStreams'] = datastreams
+    converted_data = {
+        'meter': meter,
+        'unitOfWork': unit_of_work
+    }
+
+    return converted_data
+
+
+def get_headers():
+    return {
+        'x-api-key': secrets.API_KEY,
+        'Content-Type': 'application/json' 
+    }
+    
+
+def upload_to_pipeline(serial, date, data):
+    converted_data = convert_to_pipeline_format(data)
+    print(converted_data)
+    url = secrets.URL
+    headers = get_headers()
+    response = requests.post(url + 'ingestions', json=converted_data, headers=headers)
+    print(response.status_code)
+    print(response.json())
+
+
 def update(data):
     serial = data['serial']
     date = data['reading_day']
     save_data(serial, date, data)
+    upload_to_pipeline(serial, date, data)
