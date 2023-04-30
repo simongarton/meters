@@ -3,10 +3,26 @@ import socket
 import os
 import json
 import requests
-import secrets
+# TODO can't get this to work - can't find the module
+# import tempest_secrets
+
+PIPELINE_URL='https://36tpsljogb.execute-api.ap-southeast-2.amazonaws.com/lambda_queue/'
+API_KEY=''
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
+
+# worry about this growing
+ENABLE_SERVER_LOG = False
+
+def log(message):
+    if not ENABLE_SERVER_LOG:
+        print(message)
+        return
+    filename = 'tempest_server.log'
+    mode = 'a' if os.path.exists(filename) else 'w'
+    with open(filename, mode) as output:
+        output.write('{} : {}\n'.format(datetime.now(), message))
 
 
 def get_ip():
@@ -70,6 +86,7 @@ def get_heartbeats():
 
 
 def post_heartbeat(heartbeat):
+    log('heartbeat {}'.format(heartbeat))
     print(heartbeat)
     data = create_or_get_heartbeats()
     data[heartbeat['serial']] = datetime.strftime(datetime.now(), TIME_FORMAT)
@@ -145,7 +162,7 @@ def convert_to_pipeline_format(data):
     unit_of_work['payloadDate'] = '{}T00:00:00Z'.format(data['reading_day'])
 
     datastreams = []
-    for name, reading_data in data['datastreams']:
+    for name, reading_data in data['datastreams'].items():
         datastream = {}
         datastream['name'] = name
         datastream['interval'] = 5 # TODO this should come from metadata but is missing.
@@ -170,23 +187,34 @@ def convert_to_pipeline_format(data):
 
 def get_headers():
     return {
-        'x-api-key': secrets.API_KEY,
+        # 'x-api-key': tempest_secrets.API_KEY,
+        'x-api-key': API_KEY,
         'Content-Type': 'application/json' 
     }
     
 
 def upload_to_pipeline(serial, date, data):
     converted_data = convert_to_pipeline_format(data)
-    print(converted_data)
-    url = secrets.URL
+    log(converted_data)
+    # url = tempest_secrets.PIPELINE_URL
+    url = PIPELINE_URL
     headers = get_headers()
-    response = requests.post(url + 'ingestions', json=converted_data, headers=headers)
-    print(response.status_code)
-    print(response.json())
+    log('{} : {}'.format(url, headers))
+    log('uploading to pipeline ...')
+    response = requests.post(url + '/ingestions', json=converted_data, headers=headers)
+    log(response)
 
 
 def update(data):
     serial = data['serial']
     date = data['reading_day']
+    log('updating {}@{}'.format(serial, date))
     save_data(serial, date, data)
     upload_to_pipeline(serial, date, data)
+
+
+# startup
+if __name__ == "__main__":
+    filename = 'tempest_server.log'
+    if os.path.exists(filename):
+        os.remove(filename)
