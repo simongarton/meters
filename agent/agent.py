@@ -10,6 +10,10 @@ from agent import meter
 # the main agent for a simulated meter. this is installed on each meter,
 # and will run ... wait.
 #
+# I don't know if this is running on Kili, my Tempest server, or not
+# and it is getting out of date fast. I'm not maintaining meter.py.
+# Let's disable it on Kili.
+#
 
 def load_config():
     with open('config.json', 'r') as config_file:

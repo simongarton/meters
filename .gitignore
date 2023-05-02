@@ -2,3 +2,4 @@ venv/
 *.pyc
 .DS_Store
 temperature_data/
+.vscode/
