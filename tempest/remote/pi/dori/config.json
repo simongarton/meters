@@ -32,6 +32,8 @@
       "23": 0
    },
      "variability": 0.1,
+     "missing_data": 0.001,     
+     "excessive_data": 0,     
      "channels": {
         "Total": 1.0,
         "Workshop1": 0.6,

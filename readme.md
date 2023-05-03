@@ -197,7 +197,8 @@ The following keys are used:
 - `profile` : a map, keys are strings 0->23 of base values to use as a profile for the captured data
 - `variability` : a float, a measure of how much the readings will differ from the profile. 0.1 is 10% and is a good start
 - `channels` : a map of channel names and multipliers
-
+- `missing_data` :  a float, a measure of how likely a given reading will be skipped. 0.001 is 0.1% and is a good start
+- `excessive_data` :  a float, a measure of how likely a given reading will be very large. 0.001 is 0.1% and is a good start
 
 - `display` : `oled-1.3`, `lcd-1.14` or `null` for my supported displays
 - `demo` : `true`, `false` or `null` : if `true,` this is a normal pico with no network so no uploads etc

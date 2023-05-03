@@ -32,6 +32,8 @@
       "23": 1
    },
      "variability": 0.1,
+     "missing_data": 0,     
+     "excessive_data": 0.001,     
      "channels": {
         "Total": 1.0,
         "House": 0.6,

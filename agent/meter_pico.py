@@ -31,7 +31,8 @@ import meter_pico_display
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 APP_TITLE = "picoMeter"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
+DATA_MODEL_VERSION = "1.0.0"
 
 def round_time(dt=None, roundTo=60):
     if dt == None : dt = time.localtime()
@@ -161,9 +162,17 @@ def generate_reading(usable_time, config, channel_factor):
     profile_data = config['profile'] if 'profile' in config else {}
     profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
     variability = config['variability'] if 'variability' in config else 0
+    
     reading = profile_value
     varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
     channel_reading = round(varied_reading * channel_factor, 3)
+    
+    missing_data = config['missing_data'] if 'missing_data' in config else 0
+    excessive_data = config['excessive_data'] if 'excessive_data' in config else 0
+    if random.uniform(0, 1) < missing_data:
+        return None
+    if random.uniform(0, 1) < excessive_data:
+        channel_reading = random(0,1000)
     return channel_reading if channel_reading > 0 else 0
         
 
@@ -203,9 +212,13 @@ def save_chart_reading(channel_name, reading):
     
 
 def build_metadata_block(config):
+
+    small_config = config.copy()
+    small_config.pop('profile')
     return {
         'version': VERSION,
-        'config': config
+        'data_model_version': DATA_MODEL_VERSION,
+        'config': small_config
     }
 
 
@@ -230,6 +243,8 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     readings = []
     for channel_name, channel_factor in channel_data.items():
         reading = generate_reading(usable_time, config, channel_factor)
+        if reading == None:
+            continue
         save_chart_reading(channel_name, reading)
         readings.append((channel_name, reading))
         interval_key = strftime_time_utc(usable_time)
@@ -470,7 +485,8 @@ def generate_readings(config):
         readings = []
         for interval in range(number_points):
             reading = generate_reading(usable_time, config, channel_factor)
-            readings.append(reading)
+            if reading != None:
+                readings.append(reading)
             seconds = seconds + (5 * 60)
             usable_time = time.localtime(seconds)
 
@@ -599,6 +615,6 @@ if __name__ == '__main__':
         pass
 
     blink_five_times_to_start()
-    meter_pico_display.splash_screen('{} {}'.format(APP_TITLE, VERSION))
+    meter_pico_display.splash_screen('{} {} ({})'.format(APP_TITLE, VERSION, DATA_MODEL_VERSION))
     #force_upload()
     cold_tick_loop()

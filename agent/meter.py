@@ -12,8 +12,11 @@ import socket
 # the main logic for a meter - generating values and storing them.
 #
 
+# Warning. This might be out of date - everything has moved to meter_pico.py and that has different libraries.
+
 # TODO I should combine these two. the _UTC version is only used on writing out to the file,
 # but I think it will work for all uses.
+
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 TIME_FORMAT_UTC = '%Y-%m-%dT%H:%M:%SZ'
 DAY_FORMAT = '%Y-%m-%d'
