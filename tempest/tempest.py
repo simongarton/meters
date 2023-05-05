@@ -204,15 +204,13 @@ def get_headers():
 
 def upload_to_pipeline(serial, date, data):
     converted_data = convert_to_pipeline_format(data) if CONVERT_TO_PIPELINE else data
-    log(converted_data)
     # url = tempest_secrets.PIPELINE_URL
     url = PIPELINE_URL + '/ingestions/processing' if CONVERT_TO_PIPELINE else PIPELINE_URL + '/ingestions/picos'
     headers = get_headers()
-    log('{} : {}'.format(url, headers))
-    log('uploading to pipeline ...')
-    response = requests.post(url + '/ingestions', json=converted_data, headers=headers)
+    log('uploading {}/{} to pipeline @ {} : {}'.format(serial, date, url, headers))
+    response = requests.post(url, json=converted_data, headers=headers)
     log(response)
-
+    
 
 def update(data):
     serial = data['serial']

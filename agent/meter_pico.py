@@ -261,6 +261,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     empty_day = {
         'serial': serial,
         'reading_day': reading_day,
+        'interval': config['interval_min'],
         'snapshots': snapshot_block,
         'datastreams': datastream_block,
         'metadata': metadata_block
