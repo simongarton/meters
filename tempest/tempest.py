@@ -3,17 +3,26 @@ import socket
 import os
 import json
 import requests
-# TODO can't get this to work - can't find the module
-# import tempest_secrets
 
-PIPELINE_URL='https://36tpsljogb.execute-api.ap-southeast-2.amazonaws.com/lambda_queue/'
-API_KEY=''
+# version history
+#
+# 0.2.0 : 2023-05-05 secrets as json, two endpoints
+
+with open('secrets.json', 'r') as config_file:
+    secrets = json.load(config_file)
+
+PIPELINE_URL=secrets['url']
+API_KEY=secrets['api_key']
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
+VERSION='0.2.0'
+
+CONVERT_TO_PIPELINE = False
 
 # worry about this growing
 ENABLE_SERVER_LOG = False
+
 
 def log(message):
     if not ENABLE_SERVER_LOG:
@@ -158,7 +167,8 @@ def convert_to_pipeline_format(data):
 
     unit_of_work = {}
     unit_of_work['serialNumber'] = data['serial']
-    unit_of_work['payloadDate'] = '{}T00:00:00+10:00'.format(data['reading_day'])
+    # really not sure about this - how do I know ?
+    unit_of_work['payloadDate'] = '{}T00:00:00+12:00'.format(data['reading_day'])
 
     datastreams = []
     for name, reading_data in data['datastreams'].items():
@@ -193,10 +203,10 @@ def get_headers():
     
 
 def upload_to_pipeline(serial, date, data):
-    converted_data = convert_to_pipeline_format(data)
+    converted_data = convert_to_pipeline_format(data) if CONVERT_TO_PIPELINE else data
     log(converted_data)
     # url = tempest_secrets.PIPELINE_URL
-    url = PIPELINE_URL
+    url = PIPELINE_URL + '/ingestions/processing' if CONVERT_TO_PIPELINE else PIPELINE_URL + '/ingestions/picos'
     headers = get_headers()
     log('{} : {}'.format(url, headers))
     log('uploading to pipeline ...')

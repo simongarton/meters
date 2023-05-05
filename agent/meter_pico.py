@@ -7,26 +7,17 @@
 # on real Python), urequests, no os.path.exists(), have to set time on startup using
 # wifi secrets.
 
-# Important
+# Time is a pain
+# time.localtime() and time.gmtime() return the same value on MicroPython/Pico
+# ntptime().settime() sets me to UTC.
+# 
+# There is a call I could make : "http://worldtimeapi.org/api/timezone/Pacific/Auckland"
 #
-# Using time.localtime() and then writing out the times, I ended up with a UTC time (!) but not time zone aware.
-# I have added strftime_time_utc() for when I write out to the file, to include a Z on the end - which I can then parse later
-# I have also updated the logic for checking last_uploaded, last_updated as I also parse that manually (and the Z is ignored.)
+# Howeever, I think I'm just going to apply an offset. And one day I need to do daylight savings.
 
-# on the device via thonny, just before 10pm local
+# version history
 #
-#>>> print(time.localtime())
-#(2023, 5, 5, 21, 59, 23, 4, 125)
-#>>> print(time.gmtime())
-#(2023, 5, 5, 21, 59, 30, 4, 125)
-
-# oh, but when I saw it start up
-#
-# time now is (2023, 5, 5, 10, 6, 58, 4, 125), waiting for whole minute
-#
-# and the next few were all GMT. but dropping back to a prompt gave me local times again.
-
-# I have changed the format to have +10:00 rather than Z. Crossed fingers. 0.1.3. Delete out the existing files.
+# 0.2.0 : 2023-05-05 redone time with offsets for local
 
 import time
 import json
@@ -46,8 +37,10 @@ import meter_pico_display
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 APP_TITLE = "picoMeter"
-VERSION = "0.1.3"
+VERSION = "0.2.0"
 DATA_MODEL_VERSION = "1.0.0"
+OFFSET_HOURS = 12
+OFFSET = '+12:00'
 
 def round_time(dt=None, roundTo=60):
     if dt == None : dt = time.localtime()
@@ -55,9 +48,21 @@ def round_time(dt=None, roundTo=60):
     remainder = seconds % roundTo
     return time.localtime(seconds - remainder)
 
+
+def convert_time_to_local(struct_time):
+    # cross reference add_delta()
+    seconds = time.mktime(struct_time) 
+    seconds = seconds + OFFSET_HOURS * 60 * 60
+    return time.localtime(seconds)
+
+
+def localtime():
+    return convert_time_to_local(time.localtime())
+
+
 def strftime_time(struct_time):
-    # change this one depending. Also, local needs daylight savings
-    # as the Pico is not daylight savings aware
+    # change this one depending on what output you want. 
+    # Remember the Pico is not daylight savings aware
     return strftime_time_local(struct_time)
 
 
@@ -66,7 +71,7 @@ def strftime_time_utc(struct_time):
 
 
 def strftime_time_local(struct_time):
-    return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}+10:00".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+    return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}{}".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], OFFSET)
 
 
 def strftime_time_simple(struct_time):
@@ -290,29 +295,29 @@ def upload_file(reading_day, config):
         return True
     day_data = get_day_data(reading_day)
     if day_data == None:
-        print('no data to load for {} at {}'.format(reading_day, time.localtime()))
+        print('no data to load for {} at {}'.format(reading_day, localtime()))
         return False
-    # print('got data to load for {} at {}'.format(reading_day, time.localtime()))
+    # print('got data to load for {} at {}'.format(reading_day, localtime()))
     url = config['tempest_url']
     try:
         response = urequests.post(url + 'update', json=day_data)        
         return True
     except:
-        print('failed to upload data for {} at {}'.format(reading_day, time.localtime()))
+        print('failed to upload data for {} at {}'.format(reading_day, localtime()))
         return False
 
 
 def upload_completed(config):
     metadata = create_or_load_metadata()   
     interval = config['interval_min'] * 60 
-    usable_time = round_time(time.localtime(), interval)
+    usable_time = round_time(localtime(), interval)
     current_day = strftime_day(map_timestamp_to_reading_day(usable_time))
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
     if current_day_file == None or current_day != current_day_file:
         print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
         if upload_file(current_day_file, config):
             print("uploaded file worked, updating metadata to {}".format(current_day))
-            metadata['last_uploaded'] = strftime_time(time.localtime())
+            metadata['last_uploaded'] = strftime_time(localtime())
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
         else:
@@ -334,7 +339,7 @@ def tick_completed(config, force):
         ready = True
     else:
         last_updated_time = time.localtime(strptime_time(last_updated))
-        diff = seconds_between(time.localtime(), last_updated_time)    
+        diff = seconds_between(localtime(), last_updated_time)    
         if diff > interval:
             ready = True
 
@@ -346,8 +351,8 @@ def tick_completed(config, force):
     # for now, I'm going to have a USABLE time which is the 5 minute (or 30 minute) interval before this one
     # ... which I think I shouldn't get a duplicate for (and is OK anyway, as it's keyed)
 
-    usable_time = round_time(time.localtime(), interval)
-    print('converted {} to usable time {} for interval {}'.format(time.localtime(), usable_time, interval))
+    usable_time = round_time(localtime(), interval)
+    print('converted {} to usable time {} for interval {}'.format(localtime(), usable_time, interval))
 
     snapshot_block = create_or_get_snapshot_block(config, metadata)
 
@@ -378,7 +383,7 @@ def heartbeat(config):
     heartbeat_data = {
         'serial': serial,
         'ip': ip,
-        'timestamp': strftime_time(time.localtime())
+        'timestamp': strftime_time(localtime())
     }
     url = config['tempest_url']
     response = urequests.post(url + 'heartbeat', json=heartbeat_data)
@@ -415,7 +420,7 @@ def tick(config, force):
 
     return {
         'status': status,
-        'now': strftime_time(time.localtime()),
+        'now': strftime_time(localtime()),
         'readings': readings,
         'updated': outcome
     }
@@ -423,7 +428,7 @@ def tick(config, force):
 
 def get_day(day):
     # another 5MS hack - today is actually yesterday
-    day = day if day is not None else strftime_day(add_delta(time.localtime(), days=1))
+    day = day if day is not None else strftime_day(add_delta(localtime(), days=1))
     return get_day_data(day)
     
 
@@ -471,6 +476,10 @@ def wait_until_time_set(config):
             led.off()
             time.sleep(0.5)
             ntptime.settime()
+            now = time.localtime()
+            print("used ntptime() to set time to UTC, time.localttime() is : {}".format(now))
+            converted = localtime()
+            print("my localtime is now : {}".format(converted))
             return True
         except:    
             print('could not set time')
@@ -537,26 +546,19 @@ def cold_tick_loop():
 
     meter_pico_display.display_single_message("hello, I'm {}".format(config['serial']))
 
-    print('before wifi')
-    print('time.localtime() now is {}',time.localtime()) 
-    print('time.gmtime() now is {}',time.gmtime()) 
-
     if not demo_mode(config):
         connect()
         time_set = wait_until_time_set(config)
 
-    print('after wifi')
-    print('time.localtime() now is {}',time.localtime()) 
-    print('time.gmtime() now is {}',time.gmtime()) 
-
     if demo_mode(config):
         generate_readings(config)
 
-    now = time.localtime()
-    print('time now is {}, waiting for whole minute'.format(now))
+    now = localtime()
+    converted = convert_time_to_local(now)
+    print('time now is {}, converted time {}, waiting for whole minute'.format(now, converted))
 
     while True:
-        now = time.localtime()
+        now = localtime()
         if now[5] % 60 == 0:
             break
         meter_pico_display.display_single_message("waiting ({})".format(now[5]))
@@ -573,25 +575,25 @@ def cold_tick_loop():
     iteration = 0
     while True:
         elapsed = time.time()    
-        now = time.localtime()            
+        now = localtime()            
         print('time now is {}, doing a tick'.format(now))
         led.on() # 1 second pulse to show uploading
         tick_details = tick(config, len(display_readings) == 0)
         time.sleep(1)
         led.off()
         time.sleep(1)
-        now = time.localtime()            
+        now = localtime()            
         print('time now is {}, waiting for next minute'.format(now))
         if tick_details['updated']:
             display_readings = tick_details['readings']
         while True:
-            now = time.localtime()
+            now = localtime()
             iteration = display_something(iteration, now, display_readings, interval)
             led.on() # brief flash every 5 seconds to show alive
             time.sleep(0.1)
             led.off()
             time.sleep(4.9)
-            now = time.localtime()
+            now = localtime()
             if now[5] % 60 == 0: # on the minute
                 break
             if time.time() - elapsed >= 60: # safety
