@@ -200,10 +200,14 @@ def get_headers():
         'x-api-key': API_KEY,
         'Content-Type': 'application/json' 
     }
+
+def remove_metadata(data):
+    data.pop('metadata')
+    return data
     
 
 def upload_to_pipeline(serial, date, data):
-    converted_data = convert_to_pipeline_format(data) if CONVERT_TO_PIPELINE else data
+    converted_data = convert_to_pipeline_format(data) if CONVERT_TO_PIPELINE else remove_metadata(data)
     # url = tempest_secrets.PIPELINE_URL
     url = PIPELINE_URL + '/ingestions/processing' if CONVERT_TO_PIPELINE else PIPELINE_URL + '/ingestions/picos'
     headers = get_headers()
