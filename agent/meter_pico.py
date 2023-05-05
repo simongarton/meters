@@ -13,6 +13,21 @@
 # I have added strftime_time_utc() for when I write out to the file, to include a Z on the end - which I can then parse later
 # I have also updated the logic for checking last_uploaded, last_updated as I also parse that manually (and the Z is ignored.)
 
+# on the device via thonny, just before 10pm local
+#
+#>>> print(time.localtime())
+#(2023, 5, 5, 21, 59, 23, 4, 125)
+#>>> print(time.gmtime())
+#(2023, 5, 5, 21, 59, 30, 4, 125)
+
+# oh, but when I saw it start up
+#
+# time now is (2023, 5, 5, 10, 6, 58, 4, 125), waiting for whole minute
+#
+# and the next few were all GMT. but dropping back to a prompt gave me local times again.
+
+# I have changed the format to have +10:00 rather than Z. Crossed fingers. 0.1.3. Delete out the existing files.
+
 import time
 import json
 import random
@@ -31,7 +46,7 @@ import meter_pico_display
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 APP_TITLE = "picoMeter"
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 DATA_MODEL_VERSION = "1.0.0"
 
 def round_time(dt=None, roundTo=60):
@@ -40,12 +55,21 @@ def round_time(dt=None, roundTo=60):
     remainder = seconds % roundTo
     return time.localtime(seconds - remainder)
 
+def strftime_time(struct_time):
+    # change this one depending. Also, local needs daylight savings
+    # as the Pico is not daylight savings aware
+    return strftime_time_local(struct_time)
+
 
 def strftime_time_utc(struct_time):
     return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}Z".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
 
 
-def strftime_time(struct_time):
+def strftime_time_local(struct_time):
+    return "{:04.0f}-{:02.0f}-{:02.0f}T{:02.0f}:{:02.0f}:{:02.0f}+10:00".format(struct_time[0], struct_time[1], struct_time[2], struct_time[3], struct_time[4], struct_time[5], )
+
+
+def strftime_time_simple(struct_time):
     return "{:02.0f}:{:02.0f}:{:02.0f}".format(struct_time[3], struct_time[4], struct_time[5], )
 
 
@@ -247,7 +271,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
             continue
         save_chart_reading(channel_name, reading)
         readings.append((channel_name, reading))
-        interval_key = strftime_time_utc(usable_time)
+        interval_key = strftime_time(usable_time)
         day['datastreams'][channel_name][interval_key] = reading
         updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
@@ -288,7 +312,7 @@ def upload_completed(config):
         print('need to upload file as current_day is {} but working file is {}'.format(current_day, current_day_file))
         if upload_file(current_day_file, config):
             print("uploaded file worked, updating metadata to {}".format(current_day))
-            metadata['last_uploaded'] = strftime_time_utc(time.localtime())
+            metadata['last_uploaded'] = strftime_time(time.localtime())
             metadata['current_day_file'] = current_day
             save_metadata(metadata)
         else:
@@ -323,7 +347,7 @@ def tick_completed(config, force):
     # ... which I think I shouldn't get a duplicate for (and is OK anyway, as it's keyed)
 
     usable_time = round_time(time.localtime(), interval)
-    # print('converted {} to usable time {}'.format(datetime.now(), usable_time))
+    print('converted {} to usable time {} for interval {}'.format(time.localtime(), usable_time, interval))
 
     snapshot_block = create_or_get_snapshot_block(config, metadata)
 
@@ -331,7 +355,7 @@ def tick_completed(config, force):
     updated_snapshot_block, readings = create_or_update_readings(usable_time, serial, config, snapshot_block)
 
     metadata['snapshots'] = updated_snapshot_block
-    metadata['last_updated'] = strftime_time_utc(usable_time)
+    metadata['last_updated'] = strftime_time(usable_time)
 
     save_metadata(metadata)
     return True, readings
@@ -354,7 +378,7 @@ def heartbeat(config):
     heartbeat_data = {
         'serial': serial,
         'ip': ip,
-        'timestamp': strftime_time_utc(time.localtime())
+        'timestamp': strftime_time(time.localtime())
     }
     url = config['tempest_url']
     response = urequests.post(url + 'heartbeat', json=heartbeat_data)
@@ -391,7 +415,7 @@ def tick(config, force):
 
     return {
         'status': status,
-        'now': strftime_time_utc(time.localtime()),
+        'now': strftime_time(time.localtime()),
         'readings': readings,
         'updated': outcome
     }
@@ -513,9 +537,17 @@ def cold_tick_loop():
 
     meter_pico_display.display_single_message("hello, I'm {}".format(config['serial']))
 
+    print('before wifi')
+    print('time.localtime() now is {}',time.localtime()) 
+    print('time.gmtime() now is {}',time.gmtime()) 
+
     if not demo_mode(config):
         connect()
         time_set = wait_until_time_set(config)
+
+    print('after wifi')
+    print('time.localtime() now is {}',time.localtime()) 
+    print('time.gmtime() now is {}',time.gmtime()) 
 
     if demo_mode(config):
         generate_readings(config)
@@ -567,13 +599,13 @@ def cold_tick_loop():
 
 def display_something(iteration, now, display_readings, interval):           
     if iteration % 4 == 0:
-        meter_pico_display.display_last_values(strftime_time(now), display_readings, interval)
+        meter_pico_display.display_last_values(strftime_time_simple(now), display_readings, interval)
     if iteration % 4 == 1:
-        meter_pico_display.display_line_chart(strftime_time(now), display_readings, interval)
+        meter_pico_display.display_line_chart(strftime_time_simple(now), display_readings, interval)
     if iteration % 4 == 2:
-        meter_pico_display.display_bar_chart(strftime_time(now), display_readings, interval)
+        meter_pico_display.display_bar_chart(strftime_time_simple(now), display_readings, interval)
     if iteration % 4 == 3:
-        meter_pico_display.display_total_chart(strftime_time(now), display_readings, interval)
+        meter_pico_display.display_total_chart(strftime_time_simple(now), display_readings, interval)
     iteration = iteration + 1
     return iteration
     

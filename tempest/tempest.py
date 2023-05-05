@@ -158,8 +158,7 @@ def convert_to_pipeline_format(data):
 
     unit_of_work = {}
     unit_of_work['serialNumber'] = data['serial']
-    # TODO I need to do this properly
-    unit_of_work['payloadDate'] = '{}T00:00:00Z'.format(data['reading_day'])
+    unit_of_work['payloadDate'] = '{}T00:00:00+10:00'.format(data['reading_day'])
 
     datastreams = []
     for name, reading_data in data['datastreams'].items():

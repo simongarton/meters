@@ -42,19 +42,19 @@ def display_single_message(message):
 # last value
 
 def display_last_values(timestamp, readings, interval):
-    print('display_last_values : {}/{}/{}'.format(timestamp, len(readings), interval))
+    print('display_last_values : {} : {}/{}'.format(timestamp, len(readings), interval))
 
 # bar chart
 
 def display_bar_chart(timestamp, readings, interval):
-    print('display_bar_chart : {}/{}/{}'.format(timestamp, len(readings), interval))
+    print('display_bar_chart : {} : {}/{}'.format(timestamp, len(readings), interval))
 
 # line chart
 
 def display_line_chart(timestamp, readings, interval):
-    print('display_line_chart : {}/{}/{}'.format(timestamp, len(readings), interval))
+    print('display_line_chart : {} : {}/{}'.format(timestamp, len(readings), interval))
 
 # total chart
 
 def display_total_chart(timestamp, readings, interval):
-    print('display_total_chart : {}/{}/{}'.format(timestamp, len(readings), interval))
+    print('display_total_chart : {} : {}/{}'.format(timestamp, len(readings), interval))
