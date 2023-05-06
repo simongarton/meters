@@ -1,0 +1,16 @@
+{
+   "interval_min": 5,
+   "serial": "demo",
+   "tempest_url": "http://192.168.86.51:8002/",
+   "demo": true,
+   "display": null,
+   "model": "pico",
+   "profile": {},
+   "variability": 0.0,
+   "missing_data": 0.0,
+   "excessive_data": 0.0,
+   "channels": {
+      "Temperature": 1.0,
+      "Humidity": 1.0
+   }
+}

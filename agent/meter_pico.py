@@ -186,7 +186,7 @@ def map_timestamp_to_reading_day(working_timestamp):
     return reading_day
 
 
-def generate_reading(usable_time, config, channel_factor):
+def generate_reading(usable_time, config, channel_name, channel_factor):
     working_hour = usable_time[3]
     profile_data = config['profile'] if 'profile' in config else {}
     profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
@@ -272,13 +272,14 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
 
     readings = []
     for channel_name, channel_factor in channel_data.items():
-        reading = generate_reading(usable_time, config, channel_factor)
+        reading = generate_reading(usable_time, config, channel_name, channel_factor)
         if reading == None:
             continue
         save_chart_reading(channel_name, reading)
         readings.append((channel_name, reading))
         interval_key = strftime_time(usable_time)
         day['datastreams'][channel_name][interval_key] = reading
+        print('{} @ {} -> {}'.format(channel_name, interval_key, reading))
         updated_snapshot_block[channel_name] = updated_snapshot_block[channel_name] + reading
     save_updated_day(reading_day, day)
     return updated_snapshot_block, readings
@@ -518,7 +519,7 @@ def generate_readings(config):
 
         readings = []
         for interval in range(number_points):
-            reading = generate_reading(usable_time, config, channel_factor)
+            reading = generate_reading(usable_time, config, channel_name, channel_factor)
             if reading != None:
                 readings.append(reading)
             seconds = seconds + (5 * 60)
