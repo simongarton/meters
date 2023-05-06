@@ -27,4 +27,4 @@ def generate_reading(usable_time, config, channel_name, channel_factor):
         print('unknown sensor channel {}'.format(channel_name))
     except Exception as e:
         print('error with sensor : {}'.format(e))
-    return 0
+    return None
