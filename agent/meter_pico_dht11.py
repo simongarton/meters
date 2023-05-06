@@ -19,10 +19,10 @@ def generate_reading(usable_time, config, channel_name, channel_factor):
     global sensor
     try:
         if channel_name.lower() == 'temperature':
-            time.sleep(1) # needed to give the sensor a chance
+            time.sleep(2) # needed to give the sensor a chance
             return sensor.temperature
         if channel_name.lower() == 'humidity':
-            time.sleep(1) # needed to give the sensor a chance
+            time.sleep(2) # needed to give the sensor a chance
             return sensor.humidity
         print('unknown sensor channel {}'.format(channel_name))
     except Exception as e:
