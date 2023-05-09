@@ -1,6 +1,6 @@
 {
    "interval_min": 5,
-   "serial": "agent",
+   "serial": "macbook-pro",
    "tempest_url": "http://192.168.86.51:8002/",
    "demo": false,
    "display": null,
