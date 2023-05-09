@@ -11,7 +11,8 @@ from agent import meter
 # and will run ... wait.
 #
 # I don't know if this is running on Kili, my Tempest server, or not
-# and it is getting out of date fast. I'm not maintaining meter.py.
+# and it is getting out of date fast. 
+#
 # Let's disable it on Kili.
 #
 
