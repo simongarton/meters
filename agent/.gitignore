@@ -1,2 +1,5 @@
 data/
 secrets.py
+bin/
+lib/
+pyvenv.cfg
