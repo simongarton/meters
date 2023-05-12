@@ -37,7 +37,7 @@ import meter_pico_display
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 APP_TITLE = "picoMeter"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 DATA_MODEL_VERSION = "1.0.0"
 OFFSET_HOURS = 12
 OFFSET = '+12:00'
@@ -153,7 +153,7 @@ def save_metadata(data):
     return data
 
 
-def  qr_get_day(reading_day, empty_day):
+def create_or_get_day(reading_day, empty_day):
     filename = 'data/{}.json'.format(reading_day)
     if not file_exists(filename):
         return empty_day
@@ -247,7 +247,6 @@ def build_metadata_block(config):
     return {
         'version': VERSION,
         'data_model_version': DATA_MODEL_VERSION,
-        'machine': machine.unique_id(),
         'config': small_config
     }
 
