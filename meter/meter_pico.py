@@ -250,6 +250,7 @@ def build_metadata_block(config):
     return {
         'version': VERSION,
         'data_model_version': DATA_MODEL_VERSION,
+        'machine': machine.unique_id(),
         'config': small_config
     }
 
@@ -550,6 +551,8 @@ def cold_tick_loop():
         led.off()
         time.sleep(0.9)
         
+    global wdt
+
     meter_pico_display.display_single_message("starting ...")
     print('time now is {}, starting to tick'.format(now))
     display_readings = []
@@ -559,7 +562,6 @@ def cold_tick_loop():
         now = localtime()            
         print('time now is {}, doing a tick'.format(now))
         led.on() # 1 second pulse to show uploading
-        global wdt
         wdt.feed()
         tick_details = tick(config, len(display_readings) == 0)
         time.sleep(1)
