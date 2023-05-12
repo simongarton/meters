@@ -37,13 +37,10 @@ import meter_pico_display
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 APP_TITLE = "picoMeter"
-VERSION = "0.2.0"
+VERSION = "0.2.2"
 DATA_MODEL_VERSION = "1.0.0"
 OFFSET_HOURS = 12
 OFFSET = '+12:00'
-
-from machine import WDT
-wdt = WDT(timeout=60000) # milliseconds
 
 def round_time(dt=None, roundTo=60):
     if dt == None : dt = time.localtime()
@@ -156,7 +153,7 @@ def save_metadata(data):
     return data
 
 
-def create_or_get_day(reading_day, empty_day):
+def  qr_get_day(reading_day, empty_day):
     filename = 'data/{}.json'.format(reading_day)
     if not file_exists(filename):
         return empty_day
@@ -551,8 +548,6 @@ def cold_tick_loop():
         led.off()
         time.sleep(0.9)
         
-    global wdt
-
     meter_pico_display.display_single_message("starting ...")
     print('time now is {}, starting to tick'.format(now))
     display_readings = []
@@ -562,7 +557,6 @@ def cold_tick_loop():
         now = localtime()            
         print('time now is {}, doing a tick'.format(now))
         led.on() # 1 second pulse to show uploading
-        wdt.feed()
         tick_details = tick(config, len(display_readings) == 0)
         time.sleep(1)
         led.off()
