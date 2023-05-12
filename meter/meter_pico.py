@@ -42,6 +42,9 @@ DATA_MODEL_VERSION = "1.0.0"
 OFFSET_HOURS = 12
 OFFSET = '+12:00'
 
+from machine import WDT
+wdt = WDT(timeout=60000) # milliseconds
+
 def round_time(dt=None, roundTo=60):
     if dt == None : dt = time.localtime()
     seconds = time.mktime(dt)
@@ -513,6 +516,11 @@ def generate_readings(config):
                 output.write('{}\n'.format(item))
 
 
+def write_startup_message(message):
+    with open('startup.log', 'a') as output:
+        output.write('{} : {}\n'.format(localtime(), message))
+
+
 def cold_tick_loop():
     config = load_config()
     led = find_onboard_led(config)
@@ -523,9 +531,10 @@ def cold_tick_loop():
     if not demo_mode(config):
         connect()
         time_set = wait_until_time_set(config)
-
-    if demo_mode(config):
+        write_startup_message('real startup, time set')
+    else:
         generate_readings(config)
+        write_startup_message('demo startup, readings generated')
 
     now = localtime()
     converted = convert_time_to_local(now)
@@ -540,8 +549,6 @@ def cold_tick_loop():
         time.sleep(0.1)
         led.off()
         time.sleep(0.9)
-        # TODO 
-        break
         
     meter_pico_display.display_single_message("starting ...")
     print('time now is {}, starting to tick'.format(now))
@@ -552,6 +559,8 @@ def cold_tick_loop():
         now = localtime()            
         print('time now is {}, doing a tick'.format(now))
         led.on() # 1 second pulse to show uploading
+        global wdt
+        wdt.feed()
         tick_details = tick(config, len(display_readings) == 0)
         time.sleep(1)
         led.off()
@@ -572,6 +581,11 @@ def cold_tick_loop():
                 break
             if time.time() - elapsed >= 60: # safety
                 break
+            # reboot after 24 hours
+            if iteration >= 17280:
+                write_startup_message('rebooting after 24 hours')
+                machine.reset()
+
 
 def display_something(iteration, now, display_readings, interval):           
     if iteration % 4 == 0:
