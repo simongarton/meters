@@ -428,24 +428,6 @@ def tick(config, force):
     }
 
 
-def get_day(day):
-    # another 5MS hack - today is actually yesterday
-    day = day if day is not None else strftime_day(add_delta(localtime(), days=1))
-    return get_day_data(day)
-    
-
-def upload_day(day, config):
-    try:
-        return upload_file(day, config)
-    except:
-        print('no upload possible')
-
-
-def redial(from_day, config):
-    # TBC - count the number of payloads I actually redial
-    return 0
-
-
 def load_config():
     with open('config.json', 'r') as config_file:
         data = json.load(config_file)
@@ -531,16 +513,6 @@ def generate_readings(config):
                 output.write('{}\n'.format(item))
 
 
-def update_chart_readings(chart_readings, display_readings):
-    for (channel_name, value) in display_readings:
-        if not channel_name in chart_readings:
-            chart_readings[channel_name] = []
-        chart_readings[channel_name].append(value)
-        if len(chart_readings[channel_name]) > 288:
-            chart_readings[channel_name].pop(0)
-    return chart_readings
-
-
 def cold_tick_loop():
     config = load_config()
     led = find_onboard_led(config)
@@ -612,19 +584,6 @@ def display_something(iteration, now, display_readings, interval):
         meter_pico_display.display_total_chart(strftime_time_simple(now), display_readings, interval)
     iteration = iteration + 1
     return iteration
-    
-def force_upload():
-    config = load_config()
-    if demo_mode(config):
-        return
-    connect()
-    status = ''
-
-    if upload_completed(config) == False:
-        status = status + 'not ready to upload. '
-    else:
-        status = status + 'upload completed.'  
-    print(status)    
 
 
 def blink_five_times_to_start():
@@ -652,5 +611,4 @@ if __name__ == '__main__':
 
     blink_five_times_to_start()
     meter_pico_display.splash_screen('{} {} ({})'.format(APP_TITLE, VERSION, DATA_MODEL_VERSION))
-    #force_upload()
     cold_tick_loop()
