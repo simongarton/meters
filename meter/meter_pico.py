@@ -17,6 +17,9 @@
 
 # version history
 #
+# 0.2.3 : 2023-05-13 removed machine ID, not UTF-8
+# 0.2.2 : 2023-05-13 remove watchdog - not sure now if it needed to, but early creation makes working with it hard
+# 0.2.1 : 2023-05-12 add watchdog, machine ID
 # 0.2.0 : 2023-05-05 redone time with offsets for local
 
 import time
