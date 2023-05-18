@@ -1,3 +1,14 @@
+
+
+# support for home - reading my home usage from a Mercury energy export
+
+# take a look at /data and you'll see the original file home-2022.csv, which is
+# exactly the same format as you download, only removing the first five lines which
+# are just metadata.
+#
+# there are scripts in there to split that file iinto
+
+
 # add these
 
 import time
