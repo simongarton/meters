@@ -1,0 +1,10 @@
+{
+   "interval_min": 5,
+   "serial": "home",
+   "tempest_url": "http://192.168.86.51:8002/",
+   "model": "pico-w",
+   "profile": {},
+   "channels": {
+      "Home": 1.0
+   }
+}

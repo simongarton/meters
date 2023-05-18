@@ -10,7 +10,7 @@
 # Time is a pain
 # time.localtime() and time.gmtime() return the same value on MicroPython/Pico
 # ntptime().settime() sets me to UTC.
-# 
+#
 # There is a call I could make : "http://worldtimeapi.org/api/timezone/Pacific/Auckland"
 #
 # Howeever, I think I'm just going to apply an offset. And one day I need to do daylight savings.
@@ -54,7 +54,7 @@ def round_time(dt=None, roundTo=60):
 
 def convert_time_to_local(struct_time):
     # cross reference add_delta()
-    seconds = time.mktime(struct_time) 
+    seconds = time.mktime(struct_time)
     seconds = seconds + OFFSET_HOURS * 60 * 60
     return time.localtime(seconds)
 
@@ -64,7 +64,7 @@ def localtime():
 
 
 def strftime_time(struct_time):
-    # change this one depending on what output you want. 
+    # change this one depending on what output you want.
     # Remember the Pico is not daylight savings aware
     return strftime_time_local(struct_time)
 
@@ -109,11 +109,11 @@ def add_delta(time_struct, years=None, days=None, hours=None, minutes=None, seco
     if days:
         current_seconds = current_seconds + (days * 24 * 60 * 60)
     if hours:
-        current_seconds = current_seconds + (hours * 60 * 60)    
+        current_seconds = current_seconds + (hours * 60 * 60)
     if minutes:
-        current_seconds = current_seconds + (minutes * 60)    
+        current_seconds = current_seconds + (minutes * 60)
     if seconds:
-        current_seconds = current_seconds + (seconds)    
+        current_seconds = current_seconds + (seconds)
     return time.localtime(current_seconds)
 
 
@@ -123,7 +123,7 @@ def round_to_whole_day(time_struct):
     delta_minute = time_struct[4] * 60
     delta_second = time_struct[5]
     rounded_seconds = current_seconds - delta_hour - delta_minute - delta_second
-    return time.localtime(rounded_seconds) 
+    return time.localtime(rounded_seconds)
 
 
 def file_exists(filename):
@@ -133,7 +133,7 @@ def file_exists(filename):
         return True
     except:
         return False
-    
+
 
 def create_metadata():
     with open('data/metadata.json', 'w') as metadata:
@@ -194,11 +194,11 @@ def generate_reading(usable_time, config, channel_name, channel_factor):
     profile_data = config['profile'] if 'profile' in config else {}
     profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
     variability = config['variability'] if 'variability' in config else 0
-    
+
     reading = profile_value
-    varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading) 
+    varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading)
     channel_reading = round(varied_reading * channel_factor, 3)
-    
+
     missing_data = config['missing_data'] if 'missing_data' in config else 0
     excessive_data = config['excessive_data'] if 'excessive_data' in config else 0
     if random.uniform(0, 1) < missing_data:
@@ -206,7 +206,7 @@ def generate_reading(usable_time, config, channel_name, channel_factor):
     if random.uniform(0, 1) < excessive_data:
         channel_reading = random(0,1000)
     return channel_reading if channel_reading > 0 else 0
-        
+
 
 def create_or_get_snapshot_block(config, metadata):
     channel_data = config['channels'] if 'channels' in config else {"Total":1.0}
@@ -215,8 +215,8 @@ def create_or_get_snapshot_block(config, metadata):
     for channel_name, channel_factor in channel_data.items():
         snapshot_value = snapshot_data[channel_name] if channel_name in snapshot_data else 0
         snapshot_block[channel_name] = snapshot_value
-    return snapshot_block    
- 
+    return snapshot_block
+
 
 def build_datastream_block(channel_data):
     datastream_block = {}
@@ -241,7 +241,7 @@ def save_chart_reading(channel_name, reading):
     with open(filename, 'w') as output:
             for item in short_list:
                 output.write('{}\n'.format(item))
-    
+
 
 def build_metadata_block(config):
 
@@ -291,7 +291,7 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
 def create_or_load_metadata():
     if not file_exists('data/metadata.json'):
         create_metadata()
-    metadata = load_metadata()    
+    metadata = load_metadata()
     return metadata
 
 
@@ -305,7 +305,7 @@ def upload_file(reading_day, config):
     # print('got data to load for {} at {}'.format(reading_day, localtime()))
     url = config['tempest_url']
     try:
-        response = urequests.post(url + 'update', json=day_data)        
+        response = urequests.post(url + 'update', json=day_data)
         return True
     except:
         print('failed to upload data for {} at {}'.format(reading_day, localtime()))
@@ -313,8 +313,8 @@ def upload_file(reading_day, config):
 
 
 def upload_completed(config):
-    metadata = create_or_load_metadata()   
-    interval = config['interval_min'] * 60 
+    metadata = create_or_load_metadata()
+    interval = config['interval_min'] * 60
     usable_time = round_time(localtime(), interval)
     current_day = strftime_day(map_timestamp_to_reading_day(usable_time))
     current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
@@ -335,7 +335,7 @@ def upload_completed(config):
 
 
 def tick_completed(config, force):
-    metadata = create_or_load_metadata()    
+    metadata = create_or_load_metadata()
     last_updated = metadata['last_updated']
     interval = config['interval_min'] * 60
 
@@ -344,13 +344,13 @@ def tick_completed(config, force):
         ready = True
     else:
         last_updated_time = time.localtime(strptime_time(last_updated))
-        diff = seconds_between(localtime(), last_updated_time)    
+        diff = seconds_between(localtime(), last_updated_time)
         if diff > interval:
             ready = True
 
     if not ready:
         return False, []
-    
+
     # there is a bit of a gotcha here. I need to record the 5 minute interval (or 30 etc) for this
     # which can only happen every 5 minutes. but I may have gone past this time.
     # for now, I'm going to have a USABLE time which is the 5 minute (or 30 minute) interval before this one
@@ -372,12 +372,15 @@ def tick_completed(config, force):
 
 
 def connect():
-    print('connecting to {}'.format(secrets.SSID))
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    wlan.connect(secrets.SSID, secrets.PASSWORD)
-    print('connected to wifi : {}'.format(wlan.isconnected()))
-
+    while True:
+        print('connecting to {}'.format(secrets.SSID))
+        wlan = network.WLAN(network.STA_IF)
+        wlan.active(True)
+        wlan.connect(secrets.SSID, secrets.PASSWORD)
+        print('connected to wifi : {}'.format(wlan.isconnected()))
+        if wlan.isconnected():
+            return True
+        time.sleep(5)
 
 def heartbeat(config):
     if demo_mode(config):
@@ -402,9 +405,9 @@ def tick(config, force):
         status = status + 'not ready to tick. '
     else:
         # upload the current file anyway
-        metadata = create_or_load_metadata()   
+        metadata = create_or_load_metadata()
         current_day_file = metadata['current_day_file'] if 'current_day_file' in metadata else None
-        if current_day_file:    
+        if current_day_file:
             upload_file(current_day_file, config)
             status = status + 'partial file uploaded. '
         status = status + 'tick completed. '
@@ -462,13 +465,14 @@ def wait_until_time_set(config):
             time.sleep(0.5)
             led.off()
             time.sleep(0.5)
+            print('calling ntptime() ...')
             ntptime.settime()
             now = time.localtime()
             print("used ntptime() to set time to UTC, time.localttime() is : {}".format(now))
             converted = localtime()
             print("my localtime is now : {}".format(converted))
             return True
-        except:    
+        except:
             print('could not set time')
         count = count + 1
         if count > 10:
@@ -549,21 +553,21 @@ def cold_tick_loop():
         time.sleep(0.1)
         led.off()
         time.sleep(0.9)
-        
+
     meter_pico_display.display_single_message("starting ...")
     print('time now is {}, starting to tick'.format(now))
     display_readings = []
     iteration = 0
     while True:
-        elapsed = time.time()    
-        now = localtime()            
+        elapsed = time.time()
+        now = localtime()
         print('time now is {}, doing a tick'.format(now))
         led.on() # 1 second pulse to show uploading
         tick_details = tick(config, len(display_readings) == 0)
         time.sleep(1)
         led.off()
         time.sleep(1)
-        now = localtime()            
+        now = localtime()
         print('time now is {}, waiting for next minute'.format(now))
         if tick_details['updated']:
             display_readings = tick_details['readings']
@@ -585,7 +589,7 @@ def cold_tick_loop():
                 machine.reset()
 
 
-def display_something(iteration, now, display_readings, interval):           
+def display_something(iteration, now, display_readings, interval):
     if iteration % 4 == 0:
         meter_pico_display.display_last_values(strftime_time_simple(now), display_readings, interval)
     if iteration % 4 == 1:

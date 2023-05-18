@@ -31,6 +31,7 @@ import network
 import secrets
 import ntptime
 import os
+
 from machine import Pin
 from machine import WDT
 
@@ -46,6 +47,10 @@ VERSION = "0.2.3"
 DATA_MODEL_VERSION = "1.0.0"
 OFFSET_HOURS = 12
 OFFSET = '+12:00'
+
+FILENAME = 'home-2022-min.csv'
+YEAR = 2022
+
 
 def round_time(dt=None, roundTo=60):
     if dt == None : dt = time.localtime()
@@ -191,23 +196,31 @@ def map_timestamp_to_reading_day(working_timestamp):
     return reading_day
 
 
+def get_reading_from_file(month, day, hour, min, divisor):
+    date = '{:04d}-{:02d}-{:02d}'.format(YEAR, month, day)
+    month = '{:04d}-{:02d}'.format(YEAR, month)
+    time = '{:02d}:{:02d}'.format(hour, min)
+    filename = 'months/{}.csv'.format(month)
+    with open(filename, 'r') as csvfile:
+        while True:
+            row = csvfile.readline()
+            if not row:
+                break
+            row_data = row.split(',')
+            if row_data[0] == date:
+                if row_data[1] == time:
+                    return round(1000 * float(row_data[2]) / divisor) / 1000.0
+
+
 def generate_reading(usable_time, config, channel_name, channel_factor):
-    working_hour = usable_time[3]
-    profile_data = config['profile'] if 'profile' in config else {}
-    profile_value = profile_data[str(working_hour)] if str(working_hour) in profile_data else 1
-    variability = config['variability'] if 'variability' in config else 0
-
-    reading = profile_value
-    varied_reading = reading + (random.uniform(0, variability) * reading) - (2 * random.uniform(0, variability) * reading)
-    channel_reading = round(varied_reading * channel_factor, 3)
-
-    missing_data = config['missing_data'] if 'missing_data' in config else 0
-    excessive_data = config['excessive_data'] if 'excessive_data' in config else 0
-    if random.uniform(0, 1) < missing_data:
-        return None
-    if random.uniform(0, 1) < excessive_data:
-        channel_reading = random(0,1000)
-    return channel_reading if channel_reading > 0 else 0
+    month = usable_time[1]
+    day = usable_time[2]
+    hour = usable_time[3]
+    min = usable_time[4]
+    min30 = (min // 30) * 30
+    reading = get_reading_from_file(month, day, hour, min30, 6)
+    print('for {}/{} {}:{} ({}) got {}'.format(day, month, hour, min, min30, reading))
+    return reading
 
 
 def create_or_get_snapshot_block(config, metadata):
@@ -374,11 +387,15 @@ def tick_completed(config, force):
 
 
 def connect():
-    print('connecting to {}'.format(secrets.SSID))
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    wlan.connect(secrets.SSID, secrets.PASSWORD)
-    print('connected to wifi : {}'.format(wlan.isconnected()))
+    while True:
+        print('connecting to {}'.format(secrets.SSID))
+        wlan = network.WLAN(network.STA_IF)
+        wlan.active(True)
+        wlan.connect(secrets.SSID, secrets.PASSWORD)
+        print('connected to wifi : {}'.format(wlan.isconnected()))
+        if wlan.isconnected():
+            return True
+        time.sleep(5)
 
 
 def heartbeat(config):
@@ -464,6 +481,7 @@ def wait_until_time_set(config):
             time.sleep(0.5)
             led.off()
             time.sleep(0.5)
+            print('calling ntptime() ...')
             ntptime.settime()
             now = time.localtime()
             print("used ntptime() to set time to UTC, time.localttime() is : {}".format(now))
@@ -630,3 +648,4 @@ if __name__ == '__main__':
     blink_five_times_to_start()
     meter_pico_display.splash_screen('{} {} ({})'.format(APP_TITLE, VERSION, DATA_MODEL_VERSION))
     cold_tick_loop()
+
