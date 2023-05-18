@@ -11,6 +11,7 @@
    "excessive_data": 0.0,
    "channels": {
       "Temperature": 1.0,
-      "Humidity": 1.0
+      "Humidity": 1.0,
+      "Onboard": 1.0
    }
 }

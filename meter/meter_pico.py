@@ -17,6 +17,8 @@
 
 # version history
 #
+# 0.3.0 : 2023-05-19 WDT back in; consolidating
+# 0.2.4 : 2023-05-14 WDT again just for pico-001
 # 0.2.3 : 2023-05-13 removed machine ID, not UTF-8
 # 0.2.2 : 2023-05-13 remove watchdog - not sure now if it needed to, but early creation makes working with it hard
 # 0.2.1 : 2023-05-12 add watchdog, machine ID
@@ -30,7 +32,7 @@ import network
 import secrets
 import ntptime
 import os
-from machine import Pin
+from machine import Pin, WDT
 
 # this is an empty class, with stub methods. if you look in the displays/folder, you can see other versions - with their appropriate
 # drive files - of this file to support specific displays. displays from WaveShare.
@@ -372,15 +374,18 @@ def tick_completed(config, force):
 
 
 def connect():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if wlan.isconnected():
+        return True
     while True:
         print('connecting to {}'.format(secrets.SSID))
-        wlan = network.WLAN(network.STA_IF)
-        wlan.active(True)
         wlan.connect(secrets.SSID, secrets.PASSWORD)
         print('connected to wifi : {}'.format(wlan.isconnected()))
         if wlan.isconnected():
             return True
         time.sleep(5)
+
 
 def heartbeat(config):
     if demo_mode(config):
@@ -544,6 +549,7 @@ def cold_tick_loop():
     converted = convert_time_to_local(now)
     print('time now is {}, converted time {}, waiting for whole minute'.format(now, converted))
 
+    wdt = WDT(timeout=8000) # milliseconds
     while True:
         now = localtime()
         if now[5] % 60 == 0:
@@ -571,6 +577,7 @@ def cold_tick_loop():
         print('time now is {}, waiting for next minute'.format(now))
         if tick_details['updated']:
             display_readings = tick_details['readings']
+        wdt.feed()
         while True:
             now = localtime()
             iteration = display_something(iteration, now, display_readings, interval)
@@ -583,6 +590,8 @@ def cold_tick_loop():
                 break
             if time.time() - elapsed >= 60: # safety
                 break
+            # feed the watchdog
+            wdt.feed()
             # reboot after 24 hours
             if iteration >= 17280:
                 write_startup_message('rebooting after 24 hours')
