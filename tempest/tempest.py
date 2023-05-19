@@ -6,6 +6,7 @@ import requests
 
 # version history
 #
+# 0.3.0 : 2023-05-19 new endpoints
 # 0.2.0 : 2023-05-05 secrets as json, two endpoints
 
 with open("secrets.json", "r") as config_file:
@@ -78,7 +79,17 @@ def save_meter_data(data):
 def convert_heartbeats_to_list(data):
     list = []
     for serial_number, last_seen in data.items():
-        list.append({"serialNumber": serial_number, "timeLastCommunicated": last_seen})
+        last_communicated = datetime.fromisoformat(last_seen)
+        elapsed_seconds = round(
+            datetime.now().timestamp() - last_communicated.timestamp()
+        )
+
+        list.append({
+            "serialNumber": serial_number,
+            "timeLastCommunicated": last_seen,
+            "elapsedSeconds": elapsed_seconds
+            })
+    list.sort(key= lambda x:x['elapsedSeconds'])
     return list
 
 
@@ -143,12 +154,15 @@ def convert_meters_to_list(data):
                 "latestFile": meter_data[latest_key],
             }
         )
+
+    list.sort(key= lambda x:x['elapsedSeconds'])
     return list
 
 
 def get_meters():
     data = create_or_get_meters()
     return convert_meters_to_list(data)
+
 
 def get_meter_payload_datastream(serial_number, payload_date, datastream_name):
     dirname = "data/{}".format(serial_number)
