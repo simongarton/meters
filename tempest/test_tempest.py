@@ -25,5 +25,8 @@ import tempest
 # print(tempest.get_meter_payload_datastream('pico-001', '2023-05-16', 'House'))
 # print()
 
-print(tempest.get_status())
+# print(tempest.get_status())
+# print()
+
+print(tempest.upload())
 print()

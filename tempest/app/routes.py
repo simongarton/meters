@@ -137,6 +137,11 @@ def update():
     return jsonify(tempest.update(request.json))
 
 
+@app.route("/upload", methods=["POST"])
+def upload():
+    return jsonify(tempest.upload(request.json))
+
+
 # UI
 
 

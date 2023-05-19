@@ -84,12 +84,14 @@ def convert_heartbeats_to_list(data):
             datetime.now().timestamp() - last_communicated.timestamp()
         )
 
-        list.append({
-            "serialNumber": serial_number,
-            "timeLastCommunicated": last_seen,
-            "elapsedSeconds": elapsed_seconds
-            })
-    list.sort(key= lambda x:x['elapsedSeconds'])
+        list.append(
+            {
+                "serialNumber": serial_number,
+                "timeLastCommunicated": last_seen,
+                "elapsedSeconds": elapsed_seconds,
+            }
+        )
+    list.sort(key=lambda x: x["elapsedSeconds"])
     return list
 
 
@@ -155,7 +157,7 @@ def convert_meters_to_list(data):
             }
         )
 
-    list.sort(key= lambda x:x['elapsedSeconds'])
+    list.sort(key=lambda x: x["elapsedSeconds"])
     return list
 
 
@@ -171,14 +173,11 @@ def get_meter_payload_datastream(serial_number, payload_date, datastream_name):
     filename = "data/{}/{}.json".format(serial_number, payload_date)
     with open(filename, "r") as input:
         payload = json.load(input)
-    datastream_data =  payload["datastreams"][datastream_name]
+    datastream_data = payload["datastreams"][datastream_name]
     data = []
     for timestamp, value in datastream_data.items():
-        data.append({
-            'timestamp':timestamp,
-            'value':value
-        })
-    data.sort(key= lambda x:x['timestamp'])
+        data.append({"timestamp": timestamp, "value": value})
+    data.sort(key=lambda x: x["timestamp"])
     return data
 
 
@@ -246,7 +245,7 @@ def get_meter_payloads(serial_number):
             {
                 "filename": filename,
                 "serialNumber": serial_number,
-                "payloadDate": payload_date.replace('.json',''),
+                "payloadDate": payload_date.replace(".json", ""),
                 "meterVersion": meter_version,
                 "dataModelVersion": data_model_version,
                 "interval": interval,
@@ -266,8 +265,8 @@ def get_meter(serial):
         days.append(file.replace(".json", ""))
     days.sort(reverse=True)
     return {
-        'serialNumber': serial,
-        'payloads': len(days),
+        "serialNumber": serial,
+        "payloads": len(days),
     }
 
 
@@ -345,14 +344,14 @@ def convert_to_pipeline_format(data):
 
 def get_headers():
     return {
-        # 'x-api-key': tempest_secrets.API_KEY,
         "x-api-key": API_KEY,
         "Content-Type": "application/json",
     }
 
 
 def remove_metadata(data):
-    data.pop("metadata")
+    if "metadata" in data:
+        data.pop("metadata")
     return data
 
 
@@ -362,44 +361,87 @@ def upload_to_pipeline(serial, date, data):
         if CONVERT_TO_PIPELINE
         else remove_metadata(data)
     )
-    # url = tempest_secrets.PIPELINE_URL
     url = (
         PIPELINE_URL + "/ingestions/processing"
         if CONVERT_TO_PIPELINE
         else PIPELINE_URL + "/ingestions/picos"
     )
     headers = get_headers()
-    log("uploading {}/{} to pipeline @ {} : {}".format(serial, date, url, headers))
+    log("uploading {}/{} to pipeline @ {}".format(serial, date, url))
     response = requests.post(url, json=converted_data, headers=headers)
     log(response)
 
 
 def update(data):
+    # a meter is uploading a file : store it to upload later
     serial = data["serial"]
     date = data["reading_day"]
     log("updating {}@{}".format(serial, date))
     save_all_data(serial, date, data)
-    upload_to_pipeline(serial, date, data)
+
+
+def upload():
+    # initiated by a cron job posting here, or manually, this will take
+    # all the existing files, upload each one to the pipeline, and then
+    # move them to an archive folder
+    # upload_to_pipeline(serial, date, data)
+    if not os.path.exists("data"):
+        os.mkdir("data")
+    if not os.path.exists("archive"):
+        os.mkdir("archive")
+
+    dirs = os.listdir("data")
+    for dir in dirs:
+        if not os.path.isdir("data/" + dir):
+            continue
+        upload_and_archive("data/" + dir)
+
+
+def upload_and_archive(dir):
+    files = os.listdir(dir)
+    print("{}:{}".format(dir, files))
+    for file in files:
+        upload_and_archive_file(dir, file)
+
+
+def upload_and_archive_file(dir, filename):
+    pathname = "{}/{}".format(dir, filename)
+    with open(pathname, "r") as input:
+        data = json.load(input)
+        serial = data["serial"]
+        reading_day = data["reading_day"]
+        upload_to_pipeline(serial, reading_day, data)
+        archive_file(dir, filename)
+
+
+def archive_file(dir, filename):
+    print('{}, {}'.format(dir, filename))
+    archive_dir = dir.replace("data","archive")
+    if not os.path.exists(archive_dir):
+        os.mkdir(archive_dir)
+    old_path = "{}/{}".format(dir, filename)
+    new_path = "{}/{}".format(archive_dir, filename)
+    os.rename(old_path, new_path)
 
 
 def get_status():
-
     heartbeats = get_heartbeats()
     active_meter_count = 0
     inactive_meter_count = 0
     for heartbeat in heartbeats:
-        elapsed = heartbeat['elapsedSeconds']
-        if elapsed > (60 * 60): # not heard from in 1 hour
+        elapsed = heartbeat["elapsedSeconds"]
+        if elapsed > (60 * 60):  # not heard from in 1 hour
             inactive_meter_count = inactive_meter_count + 1
         else:
             active_meter_count = active_meter_count + 1
 
-    time_to_upload = '?'
+    time_to_upload = "?"
     return {
-        'activeMeters': active_meter_count,
-        'inactiveMeters': inactive_meter_count,
-        'timeToUpload': time_to_upload
+        "activeMeters": active_meter_count,
+        "inactiveMeters": inactive_meter_count,
+        "timeToUpload": time_to_upload,
     }
+
 
 # startup
 if __name__ == "__main__":
