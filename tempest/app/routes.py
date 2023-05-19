@@ -139,7 +139,7 @@ def update():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    return jsonify(tempest.upload(request.json))
+    return jsonify(tempest.upload())
 
 
 # UI

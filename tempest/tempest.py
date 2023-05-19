@@ -121,7 +121,6 @@ def get_heartbeats():
 
 def post_heartbeat(heartbeat):
     log("heartbeat {}".format(heartbeat))
-    print(heartbeat)
     data = create_or_get_heartbeats()
     data[heartbeat["serial"]] = now_to_second().isoformat()
     save_heartbeats(data)
@@ -152,7 +151,8 @@ def convert_meters_to_list(data):
                 "serialNumber": serial_number,
                 "timeLastCommunicated": meter_data[time_key],
                 "elapsedSeconds": elapsed_seconds,
-                "countOfFilesAvailable": meter_data[count_key],
+                # "countOfFilesAvailable": meter_data[count_key],
+                "countOfFilesAvailable": get_available_payload_count_for_meter(serial_number),
                 "latestFile": meter_data[latest_key],
             }
         )
@@ -296,6 +296,8 @@ def save_all_data(serial, date, data):
     filename = "data/{}/{}.json".format(serial, date)
     with open(filename, "w") as file:
         json.dump(data, file, indent=4)
+
+    # this is fine if the meter is live, but drifts
     file_count = len(os.listdir(dirname))
 
     meter_data = create_or_get_meters()
@@ -391,17 +393,21 @@ def upload():
         os.mkdir("archive")
 
     dirs = os.listdir("data")
+    uploaded = 0
     for dir in dirs:
         if not os.path.isdir("data/" + dir):
             continue
-        upload_and_archive("data/" + dir)
+        uploaded = uploaded + upload_and_archive("data/" + dir)
+    return {"uploaded": uploaded}
 
 
 def upload_and_archive(dir):
     files = os.listdir(dir)
-    print("{}:{}".format(dir, files))
+    uploaded = 0
     for file in files:
         upload_and_archive_file(dir, file)
+        uploaded = uploaded + 1
+    return uploaded
 
 
 def upload_and_archive_file(dir, filename):
@@ -415,13 +421,48 @@ def upload_and_archive_file(dir, filename):
 
 
 def archive_file(dir, filename):
-    print('{}, {}'.format(dir, filename))
-    archive_dir = dir.replace("data","archive")
+    archive_dir = dir.replace("data", "archive")
     if not os.path.exists(archive_dir):
         os.mkdir(archive_dir)
     old_path = "{}/{}".format(dir, filename)
     new_path = "{}/{}".format(archive_dir, filename)
     os.rename(old_path, new_path)
+
+
+def get_available_payload_count():
+    if not os.path.exists("data"):
+        os.mkdir("data")
+
+    dirs = os.listdir("data")
+    count = 0
+    for dir in dirs:
+        if not os.path.isdir("data/" + dir):
+            continue
+        files = os.listdir("data/" + dir)
+        count = count + len(files)
+    return count
+
+
+def get_available_payload_count_for_meter(serial):
+    if not os.path.exists("data"):
+        return 0
+    if not os.path.exists("data/" + serial):
+        return 0
+    return len(os.listdir("data/" + serial))
+
+
+def get_archived_payload_count():
+    if not os.path.exists("archive"):
+        os.mkdir("archive")
+
+    dirs = os.listdir("archive")
+    count = 0
+    for dir in dirs:
+        if not os.path.isdir("archive/" + dir):
+            continue
+        files = os.listdir("archive/" + dir)
+        count = count + len(files)
+    return count
 
 
 def get_status():
@@ -435,11 +476,14 @@ def get_status():
         else:
             active_meter_count = active_meter_count + 1
 
-    time_to_upload = "?"
+    available_payload_count = get_available_payload_count()
+    archived_payload_count = get_archived_payload_count()
+
     return {
         "activeMeters": active_meter_count,
         "inactiveMeters": inactive_meter_count,
-        "timeToUpload": time_to_upload,
+        "availablePayloads": available_payload_count,
+        "archivedPayloads": archived_payload_count,
     }
 
 

@@ -7,8 +7,8 @@ import tempest
 # print(tempest.get_heartbeats())
 # print()
 
-# print(tempest.get_meters())
-# print()
+print(tempest.get_meters())
+print()
 
 # print(tempest.get_meter('pico-001'))
 # print()
@@ -28,5 +28,5 @@ import tempest
 # print(tempest.get_status())
 # print()
 
-print(tempest.upload())
-print()
+# print(tempest.upload())
+# print()
