@@ -17,7 +17,8 @@ def _build_cors_preflight_response():
     response.headers.add("Access-Control-Allow-Methods", "*")
     return response
 
-def jsonify_cors(response):
+def jsonify_cors(data):
+    response = jsonify(data)
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
@@ -67,8 +68,19 @@ def get_meter():
     if day == None:
         return jsonify_cors(tempest.get_meter(serial))
     if datastream == None:
-        return jsonify_cors(tempest.get_meter_readings(serial, day))
-    return jsonify_cors(tempest.get_meter_readings(serial, day, datastream))
+        return jsonify_cors(tempest.get_meter_payload_datastreams(serial, day))
+    return jsonify_cors(tempest.get_meter_payload_datastream(serial, day, datastream))
+
+
+@app.route('/payload', methods=['GET'])
+def get_payload():
+    serial = request.args.get('serial')
+    # should I be testing and 404
+    day = request.args.get('day')
+    if day == None:
+        return jsonify({}), 404
+    return jsonify_cors(tempest.get_meter_payload(serial, day))
+
 
 # POST
 
