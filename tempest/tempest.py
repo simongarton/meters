@@ -382,6 +382,25 @@ def update(data):
     upload_to_pipeline(serial, date, data)
 
 
+def get_status():
+
+    heartbeats = get_heartbeats()
+    active_meter_count = 0
+    inactive_meter_count = 0
+    for heartbeat in heartbeats:
+        elapsed = heartbeat['elapsedSeconds']
+        if elapsed > (60 * 60): # not heard from in 1 hour
+            inactive_meter_count = inactive_meter_count + 1
+        else:
+            active_meter_count = active_meter_count + 1
+
+    time_to_upload = '?'
+    return {
+        'activeMeters': active_meter_count,
+        'inactiveMeters': inactive_meter_count,
+        'timeToUpload': time_to_upload
+    }
+
 # startup
 if __name__ == "__main__":
     filename = "tempest_server.log"

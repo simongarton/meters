@@ -10,8 +10,8 @@ import tempest
 # print(tempest.get_meters())
 # print()
 
-print(tempest.get_meter('pico-001'))
-print()
+# print(tempest.get_meter('pico-001'))
+# print()
 
 # print(tempest.get_meter_payloads('pico-001'))
 # print()
@@ -24,3 +24,6 @@ print()
 
 # print(tempest.get_meter_payload_datastream('pico-001', '2023-05-16', 'House'))
 # print()
+
+print(tempest.get_status())
+print()

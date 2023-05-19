@@ -103,7 +103,9 @@ def get_meter_payload_datastream(serial, payload_date, datastream):
         return jsonify({}), 400
     if datastream == None:
         return jsonify({}), 400
-    return jsonify_cors(tempest.get_meter_payload_datastream(serial, payload_date, datastream))
+    return jsonify_cors(
+        tempest.get_meter_payload_datastream(serial, payload_date, datastream)
+    )
 
 
 @app.route("/payload", methods=["GET"])
@@ -115,6 +117,11 @@ def get_payload():
     if day == None:
         return jsonify({}), 400
     return jsonify_cors(tempest.get_meter_payload(serial, day))
+
+
+@app.route("/status", methods=["GET"])
+def get_status():
+    return jsonify_cors(tempest.get_status())
 
 
 # POST
