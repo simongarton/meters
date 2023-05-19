@@ -245,9 +245,10 @@ def get_meter_payloads(serial_number):
         meter_files.append(
             {
                 "filename": filename,
+                "serialNumber": serial_number,
+                "payloadDate": payload_date.replace('.json',''),
                 "meterVersion": meter_version,
                 "dataModelVersion": data_model_version,
-                "payloadDate": payload_date,
                 "interval": interval,
                 "snapshots": snapshots,
                 "datastreams": datastreams,
@@ -264,7 +265,10 @@ def get_meter(serial):
     for file in os.listdir(dirname):
         days.append(file.replace(".json", ""))
     days.sort(reverse=True)
-    return days
+    return {
+        'serialNumber': serial,
+        'payloads': len(days),
+    }
 
 
 def get_meter_readings(serial, day):
