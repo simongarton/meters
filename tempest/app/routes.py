@@ -182,7 +182,7 @@ def update():
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    return jsonify(tempest.upload())
+    return jsonify_cors(tempest.upload())
 
 
 # UI
