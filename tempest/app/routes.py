@@ -108,6 +108,49 @@ def get_meter_payload_datastream(serial, payload_date, datastream):
     )
 
 
+@app.route("/archives", methods=["GET"])
+def get_archives():
+    return jsonify_cors(tempest.get_archives())
+
+
+@app.route("/archives/<serial>", methods=["GET"])
+def get_archive(serial):
+    if serial == None:
+        return jsonify({}), 400
+    return jsonify_cors(tempest.get_archive(serial))
+
+
+@app.route("/archives/<serial>/payloads", methods=["GET"])
+def get_archived_meter_payloads(serial):
+    if serial == None:
+        return jsonify({}), 400
+    return jsonify_cors(tempest.get_archived_meter_payloads(serial))
+
+
+@app.route("/archives/<serial>/payloads/<payload_date>", methods=["GET"])
+def get_archived_meter_payload_datastreams(serial, payload_date):
+    if serial == None:
+        return jsonify({}), 400
+    if payload_date == None:
+        return jsonify({}), 400
+    return jsonify_cors(
+        tempest.get_archived_meter_payload_datastreams(serial, payload_date)
+    )
+
+
+@app.route("/archives/<serial>/payloads/<payload_date>/<datastream>", methods=["GET"])
+def get_archived_meter_payload_datastream(serial, payload_date, datastream):
+    if serial == None:
+        return jsonify({}), 400
+    if payload_date == None:
+        return jsonify({}), 400
+    if datastream == None:
+        return jsonify({}), 400
+    return jsonify_cors(
+        tempest.get_archived_meter_payload_datastream(serial, payload_date, datastream)
+    )
+
+
 @app.route("/payload", methods=["GET"])
 def get_payload():
     serial = request.args.get("serial")

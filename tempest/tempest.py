@@ -152,7 +152,12 @@ def convert_meters_to_list(data):
                 "timeLastCommunicated": meter_data[time_key],
                 "elapsedSeconds": elapsed_seconds,
                 # "countOfFilesAvailable": meter_data[count_key],
-                "countOfFilesAvailable": get_available_payload_count_for_meter(serial_number),
+                "countOfFilesAvailable": get_available_payload_count_for_meter(
+                    serial_number
+                ),
+                "countOfFilesArchived": get_archived_payload_count_for_meter(
+                    serial_number
+                ),
                 "latestFile": meter_data[latest_key],
             }
         )
@@ -167,10 +172,27 @@ def get_meters():
 
 
 def get_meter_payload_datastream(serial_number, payload_date, datastream_name):
-    dirname = "data/{}".format(serial_number)
+    return _get_meter_payload_datastream(
+        serial_number, payload_date, datastream_name, "data"
+    )
+
+
+def get_archives():
+    data = create_or_get_meters()
+    return convert_meters_to_list(data)
+
+
+def get_archived_meter_payload_datastream(serial_number, payload_date, datastream_name):
+    return _get_meter_payload_datastream(
+        serial_number, payload_date, datastream_name, "archive"
+    )
+
+
+def _get_meter_payload_datastream(serial_number, payload_date, datastream_name, dir):
+    dirname = "{}/{}".format(dir, serial_number)
     if not os.path.exists(dirname):
         return {}
-    filename = "data/{}/{}.json".format(serial_number, payload_date)
+    filename = "{}/{}/{}.json".format(dir, serial_number, payload_date)
     with open(filename, "r") as input:
         payload = json.load(input)
     datastream_data = payload["datastreams"][datastream_name]
@@ -182,10 +204,18 @@ def get_meter_payload_datastream(serial_number, payload_date, datastream_name):
 
 
 def get_meter_payload_datastreams(serial_number, payload_date):
-    dirname = "data/{}".format(serial_number)
+    return _get_meter_payload_datastreams(serial_number, payload_date, "data")
+
+
+def get_archived_meter_payload_datastreams(serial_number, payload_date):
+    return _get_meter_payload_datastreams(serial_number, payload_date, "archive")
+
+
+def _get_meter_payload_datastreams(serial_number, payload_date, dir):
+    dirname = "{}/{}".format(dir, serial_number)
     if not os.path.exists(dirname):
         return {}
-    filename = "data/{}/{}.json".format(serial_number, payload_date)
+    filename = "{}/{}/{}.json".format(dir, serial_number, payload_date)
     with open(filename, "r") as input:
         payload = json.load(input)
     payload_datastreams = []
@@ -225,12 +255,20 @@ def get_meter_payload(serial_number, payload_date):
 
 
 def get_meter_payloads(serial_number):
-    dirname = "data/{}".format(serial_number)
+    return _get_meter_payloads(serial_number, "data")
+
+
+def get_archived_meter_payloads(serial_number):
+    return _get_meter_payloads(serial_number, "archive")
+
+
+def _get_meter_payloads(serial_number, dir):
+    dirname = "{}/{}".format(dir, serial_number)
     if not os.path.exists(dirname):
         return []
     meter_files = []
     for payload_date in os.listdir(dirname):
-        filename = "data/{}/{}".format(serial_number, payload_date)
+        filename = "{}/{}/{}".format(dir, serial_number, payload_date)
         with open(filename, "r") as input:
             payload = json.load(input)
         snapshots = len(payload["snapshots"])
@@ -257,7 +295,15 @@ def get_meter_payloads(serial_number):
 
 
 def get_meter(serial):
-    dirname = "data/{}".format(serial)
+    return _get_meter(serial, "data")
+
+
+def get_archive(serial):
+    return _get_meter(serial, "archive")
+
+
+def _get_meter(serial, dir):
+    dirname = "{}/{}".format(dir, serial)
     if not os.path.exists(dirname):
         os.mkdir(dirname)
     days = []
@@ -449,6 +495,14 @@ def get_available_payload_count_for_meter(serial):
     if not os.path.exists("data/" + serial):
         return 0
     return len(os.listdir("data/" + serial))
+
+
+def get_archived_payload_count_for_meter(serial):
+    if not os.path.exists("archive"):
+        return 0
+    if not os.path.exists("archive/" + serial):
+        return 0
+    return len(os.listdir("archive/" + serial))
 
 
 def get_archived_payload_count():
