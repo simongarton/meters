@@ -1,6 +1,7 @@
 data/
 charts/
 secrets.py
+api_secrets.json
 bin/
 lib/
 pyvenv.cfg

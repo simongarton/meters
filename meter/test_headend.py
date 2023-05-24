@@ -2,9 +2,10 @@ import time
 import network
 import urequests
 import json
+import secrets
 
 OFFSET_HOURS = 12
-OFFSET = '+12:00'
+OFFSET = "+12:00"
 
 
 def convert_time_to_local(struct_time):
@@ -67,7 +68,7 @@ def heartbeat(config):
         "Content-Type": "application/json",
     }
 
-    response = urequests.post(url + "heartbeat", headers=headers, json=heartbeat_data)
+    response = urequests.post(url + "/heartbeats", headers=headers, json=heartbeat_data)
     print(response.status_code)
 
 
@@ -80,14 +81,62 @@ def load_config():
         data["ip"] = "0.0.0.0"
     return data
 
+
 def get_ip():
     wlan = network.WLAN(network.STA_IF)
     return wlan.ifconfig()[2]
 
 
+def upload_file(reading_day, config):
+    if reading_day == None:
+        return True
+    day_data = get_day_data(reading_day)
+    if day_data == None:
+        print("no data to load for {} at {}".format(reading_day, localtime()))
+        return False
+    # print('got data to load for {} at {}'.format(reading_day, localtime()))
+
+    url = config["tempest_url"]
+    api_key = config["tempest_api_key"]
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+    }
+    try:
+        response = urequests.post(url + "/updates", headers=headers, json=day_data)
+        print(url + "/updates : {}".format(response.status_code))
+        return True
+    except:
+        print("failed to upload data for {} at {}".format(reading_day, localtime()))
+        return False
+
+
+def file_exists(filename):
+    try:
+        with open(filename, "r") as file:
+            pass
+        return True
+    except:
+        return False
+
+
+def get_day_data(reading_day):
+    filename = "data/{}.json".format(reading_day)
+    if not file_exists(filename):
+        return None
+    with open(filename, "r") as payload:
+        data = json.load(payload)
+    return data
+
+
 def run():
     config = load_config()
+    print("starting heartbeat ...")
     heartbeat(config)
+    reading_day = "2023-05-26"
+    print("uploading file ...")
+    upload_file(reading_day, config)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run()
