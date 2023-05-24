@@ -1,8 +1,8 @@
 # Meters
 
-Simon Garton  
-simon.garton@gmail.com  
-[simongarton.com](https://simongarton.com)  
+Simon Garton
+simon.garton@gmail.com
+[simongarton.com](https://simongarton.com)
 
 March 2023
 
@@ -79,7 +79,7 @@ patterns appear overnight.
             "2023-04-07T11:50:00Z": 0.511,
             "2023-04-07T18:45:00Z": 0.9309999,
             "2023-04-07T18:40:00Z": 1.014,
-```            
+```
 
 - support redials
 
@@ -116,7 +116,7 @@ PASSWORD='my-secret-password'
 
 and `config.json`, and you must create the folder `data` (to be fixed.)
 
-There is confusion over the `urequests` library. It's imported in the code; I installed it on `pico` and it's working; 
+There is confusion over the `urequests` library. It's imported in the code; I installed it on `pico` and it's working;
 I forgot to install it on `dori` and it's ... working. Well, it was heartbeating, but I didn't see a file uploaded.
 Installed `micropython_urequests` and I now have a file. How did it heartbeat ?
 
@@ -178,6 +178,7 @@ The following keys are used:
     "interval_min": 5,
     "serial": "mac",
     "tempest_url": "http://192.168.86.34:8002/",
+    "tempest_api_key": "12345",
     "profile": {
         "0": 1,
         "1": 2,
@@ -194,6 +195,7 @@ The following keys are used:
 - `interval_min` : self-explanatory, normally 5 or 30 as a number
 - `serial` : self-explanatory, serial number as a string.
 - `tempest_url` : where is the Tempest head-end to be found
+- `tempest_api_key` : the `x-api-key` key
 - `profile` : a map, keys are strings 0->23 of base values to use as a profile for the captured data
 - `variability` : a float, a measure of how much the readings will differ from the profile. 0.1 is 10% and is a good start
 - `channels` : a map of channel names and multipliers

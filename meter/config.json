@@ -2,6 +2,7 @@
    "interval_min": 5,
    "serial": "macbook-pro",
    "tempest_url": "http://192.168.86.51:8002/",
+   "tempest_api_key": "12345",
    "demo": false,
    "display": null,
    "model": "macbook-pro",
@@ -32,8 +33,8 @@
       "23":0.074
    },
      "variability": 0.1,
-     "missing_data": 0,     
-     "excessive_data": 0.001,     
+     "missing_data": 0,
+     "excessive_data": 0.001,
      "channels": {
         "Total": 1.0,
         "Main": 0.6,

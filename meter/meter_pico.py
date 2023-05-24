@@ -296,7 +296,6 @@ def create_or_load_metadata():
     metadata = load_metadata()
     return metadata
 
-
 def upload_file(reading_day, config):
     if reading_day == None:
         return True
@@ -305,9 +304,16 @@ def upload_file(reading_day, config):
         print('no data to load for {} at {}'.format(reading_day, localtime()))
         return False
     # print('got data to load for {} at {}'.format(reading_day, localtime()))
+
     url = config['tempest_url']
+    api_key = config['tempest_api_key']
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+    }
     try:
-        response = urequests.post(url + 'update', json=day_data)
+        response = urequests.post(url + '/updates', headers=headers, json=day_data)
+        print(url + '/updates : {}'.format(response.status_code))
         return True
     except:
         print('failed to upload data for {} at {}'.format(reading_day, localtime()))
@@ -398,8 +404,21 @@ def heartbeat(config):
         'ip': ip,
         'timestamp': strftime_time(localtime())
     }
+
     url = config['tempest_url']
-    response = urequests.post(url + 'heartbeat', json=heartbeat_data)
+    api_key = config['tempest_api_key']
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = urequests.post(url + '/heartbeats', headers=headers, json=heartbeat_data)
+        print(url + '/heartbeats : {}'.format(response.status_code))
+        return True
+    except:
+        print('failed to heartbeat  at {}'.format(localtime()))
+        return False
 
 
 def tick(config, force):

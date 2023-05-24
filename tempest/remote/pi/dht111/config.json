@@ -1,7 +1,8 @@
 {
    "interval_min": 5,
    "serial": "dht111",
-   "tempest_url": "http://192.168.86.51:8002/",
+   "tempest_url": "https://w6j61zffpg.execute-api.ap-southeast-2.amazonaws.com/picometers-headend",
+   "tempest_api_key": "<secret>",
    "demo": false,
    "display": null,
    "model": "pico-w",
