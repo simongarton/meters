@@ -15,8 +15,9 @@
 #
 # Howeever, I think I'm just going to apply an offset. And one day I need to do daylight savings.
 
-# version history
+# version history (change the constant, too)
 #
+# 0.3.3 : disable
 # 0.3.2 : 2023-05-25 WDT off again
 # 0.3.1 : 2023-05-25 WDT tweaked; going to cloud HeadEnd
 # 0.3.0 : 2023-05-19 WDT back in; consolidating
@@ -44,7 +45,7 @@ import meter_pico_display
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%S'
 DAY_FORMAT = '%Y-%m-%d'
 APP_TITLE = "picoMeter"
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 DATA_MODEL_VERSION = "1.0.0"
 OFFSET_HOURS = 12
 OFFSET = '+12:00'
@@ -251,6 +252,7 @@ def build_metadata_block(config):
 
     small_config = config.copy()
     small_config.pop('profile')
+    small_config.pop('tempest_api_key')
     return {
         'version': VERSION,
         'data_model_version': DATA_MODEL_VERSION,
@@ -267,8 +269,8 @@ def create_or_update_readings(usable_time, serial, config, snapshot_block):
     metadata_block = build_metadata_block(config)
     empty_day = {
         'serial': serial,
-        'reading_day': reading_day,
         'interval': config['interval_min'],
+        'reading_day': reading_day,
         'snapshots': snapshot_block,
         'datastreams': datastream_block,
         'metadata': metadata_block
@@ -385,8 +387,9 @@ def tick_completed(config, force):
 def connect():
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
-    if wlan.isconnected():
-        return True
+    # this is now making me suspicious : 26.5.2023
+    # if wlan.isconnected():
+    #    return True
     while True:
         print('connecting to {}'.format(secrets.SSID))
         wlan.connect(secrets.SSID, secrets.PASSWORD)
