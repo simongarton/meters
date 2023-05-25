@@ -17,8 +17,9 @@
 
 # version history (change the constant, too)
 #
-# 0.3.3 : disable
-# 0.3.2 : 2023-05-25 WDT off again
+# 0.3.4 : 2023-05-26 more logs
+# 0.3.3 : 2023-05-26 disable isConnected() check, not sure if it made a difference
+# 0.3.2 : 2023-05-25 WDT off again : cloud HeadEnd takes more than 8 seconds.
 # 0.3.1 : 2023-05-25 WDT tweaked; going to cloud HeadEnd
 # 0.3.0 : 2023-05-19 WDT back in; consolidating
 # 0.2.4 : 2023-05-14 WDT again just for pico-001
@@ -316,12 +317,13 @@ def upload_file(reading_day, config):
         "x-api-key": api_key,
         "Content-Type": "application/json",
     }
+    write_log_message("About to upload file ...")
     try:
         response = urequests.post(url + '/updates', headers=headers, json=day_data)
-        print(url + '/updates : {}'.format(response.status_code))
+        write_log_message(url + '/updates : {}'.format(response.status_code))
         return True
     except:
-        print('failed to upload data for {} at {}'.format(reading_day, localtime()))
+        write_log_message('failed to upload data for {} at {}'.format(reading_day, localtime()))
         return False
 
 
@@ -550,9 +552,10 @@ def generate_readings(config):
                 output.write('{}\n'.format(item))
 
 
-def write_startup_message(message):
-    with open('startup.log', 'a') as output:
-        output.write('{} : {}\n'.format(localtime(), message))
+def write_log_message(message):
+    with open('meter.log', 'a') as output:
+        output.write('{} : {}\n'.format(strftime_time(localtime()), message))
+    print('{} : {}\n'.format(strftime_time(localtime()), message))
 
 
 def cold_tick_loop():
@@ -565,10 +568,10 @@ def cold_tick_loop():
     if not demo_mode(config):
         connect()
         time_set = wait_until_time_set(config)
-        write_startup_message('real startup, time set')
+        write_log_message('real startup, time set')
     else:
         generate_readings(config)
-        write_startup_message('demo startup, readings generated')
+        write_log_message('demo startup, readings generated')
 
     now = localtime()
     converted = convert_time_to_local(now)
@@ -620,7 +623,7 @@ def cold_tick_loop():
             # wdt.feed()
             # reboot after 24 hours
             if iteration >= 17280:
-                write_startup_message('rebooting after 24 hours')
+                write_log_message('rebooting after 24 hours')
                 machine.reset()
 
 
