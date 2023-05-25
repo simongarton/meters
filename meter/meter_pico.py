@@ -317,13 +317,16 @@ def upload_file(reading_day, config):
         "x-api-key": api_key,
         "Content-Type": "application/json",
     }
+    write_log_message("About to connect ...")
+    connect()
     write_log_message("About to upload file ...")
     try:
         response = urequests.post(url + '/updates', headers=headers, json=day_data)
         write_log_message(url + '/updates : {}'.format(response.status_code))
+        response.close()
         return True
-    except:
-        write_log_message('failed to upload data for {} at {}'.format(reading_day, localtime()))
+    except Exception as e:
+        write_log_message('failed to upload data for {} at {} : {}'.format(reading_day, strftime_time(localtime()),str(e)))
         return False
 
 
@@ -423,9 +426,10 @@ def heartbeat(config):
     try:
         response = urequests.post(url + '/heartbeats', headers=headers, json=heartbeat_data)
         print(url + '/heartbeats : {}'.format(response.status_code))
+        response.close()
         return True
-    except:
-        print('failed to heartbeat  at {}'.format(localtime()))
+    except Exception as e:
+        write_log_message('failed to heartbeat at {} : {}'.format(strftime_time(localtime()),str(e)))
         return False
 
 
